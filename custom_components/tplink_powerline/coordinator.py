@@ -9,7 +9,8 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import DEFAULT_SCAN_INTERVAL, FAILURE_THRESHOLD, PING_TIMEOUT
 
@@ -54,5 +55,9 @@ class TplinkPowerlineCoordinator(DataUpdateCoordinator[dict[str, bool]]):
             self.failure_count = 0
         else:
             self.failure_count += 1
+            if self.data is None:
+                raise UpdateFailed(
+                    f"Device {self.host} is unreachable"
+                )
 
         return {"available": self.failure_count < FAILURE_THRESHOLD}

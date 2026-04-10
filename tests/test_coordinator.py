@@ -45,6 +45,7 @@ async def test_failed_ping_increments_failure_count(hass: HomeAssistant) -> None
     """Test that a failed ping increments the failure counter."""
     coordinator = TplinkPowerlineCoordinator(hass, _make_entry())
     coordinator.failure_count = 0
+    coordinator.data = {"available": True}  # simulate prior successful refresh
 
     with patch(
         "custom_components.tplink_powerline.coordinator.asyncio.create_subprocess_exec",
@@ -60,6 +61,7 @@ async def test_failure_threshold_reached(hass: HomeAssistant) -> None:
     """Test that reaching the failure threshold marks device unavailable."""
     coordinator = TplinkPowerlineCoordinator(hass, _make_entry())
     coordinator.failure_count = 7
+    coordinator.data = {"available": True}  # simulate prior successful refresh
 
     with patch(
         "custom_components.tplink_powerline.coordinator.asyncio.create_subprocess_exec",
@@ -92,6 +94,7 @@ async def test_subprocess_exception_treated_as_failure(
     """Test that an OSError from subprocess is treated as a failed ping."""
     coordinator = TplinkPowerlineCoordinator(hass, _make_entry())
     coordinator.failure_count = 0
+    coordinator.data = {"available": True}  # simulate prior successful refresh
 
     with patch(
         "custom_components.tplink_powerline.coordinator.asyncio.create_subprocess_exec",
