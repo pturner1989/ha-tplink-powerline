@@ -12,6 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .client import PowerlineClient
 from .const import CONF_PASSWORD_HASH, DOMAIN
 from .coordinator import TplinkPowerlineCoordinator
+from .network_coordinator import NetworkCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,6 +26,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     client = None
     device_info = None
+    network_name = None
+    network_coordinator = None
 
     password_hash = entry.data.get(CONF_PASSWORD_HASH)
     if password_hash:
@@ -34,9 +37,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await client.login()
             device_info = await client.get_device_info()
+            network_name = await client.get_network_name()
             _LOGGER.info(
                 "Fetched device info for %s: %s", host, device_info
             )
+
+            net_coord = NetworkCoordinator(hass, client)
+            await net_coord.async_config_entry_first_refresh()
+            network_coordinator = net_coord
         except Exception:
             _LOGGER.warning(
                 "Failed to fetch device info via HTTP for %s, "
@@ -46,12 +54,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             client = None
             device_info = None
+            network_name = None
+            network_coordinator = None
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {
         "coordinator": coordinator,
         "client": client,
         "device_info": device_info,
+        "network_name": network_name,
+        "network_coordinator": network_coordinator,
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
