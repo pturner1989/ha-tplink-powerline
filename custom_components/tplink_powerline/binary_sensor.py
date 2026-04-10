@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import TplinkPowerlineCoordinator
+from .network_coordinator import NetworkCoordinator
 
 
 async def async_setup_entry(
@@ -24,13 +25,26 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up TP-Link Powerline binary sensor from a config entry."""
+    """Set up TP-Link Powerline binary sensors from a config entry."""
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator: TplinkPowerlineCoordinator = entry_data["coordinator"]
     device_info: dict[str, str] | None = entry_data.get("device_info")
-    async_add_entities(
-        [TplinkPowerlineBinarySensor(coordinator, entry, device_info)]
-    )
+    network_coordinator: NetworkCoordinator | None = entry_data.get("network_coordinator")
+
+    entities: list[BinarySensorEntity] = [
+        TplinkPowerlineBinarySensor(coordinator, entry, device_info)
+    ]
+
+    if network_coordinator and network_coordinator.data:
+        host = entry.data[CONF_HOST]
+        for adapter in network_coordinator.data.get("adapters", []):
+            entities.append(
+                RemoteAdapterBinarySensor(
+                    network_coordinator, entry, adapter["mac"], host
+                )
+            )
+
+    async_add_entities(entities)
 
 
 class TplinkPowerlineBinarySensor(
@@ -78,3 +92,48 @@ class TplinkPowerlineBinarySensor(
         if self.coordinator.data is None:
             return None
         return self.coordinator.data["available"]
+
+
+class RemoteAdapterBinarySensor(
+    CoordinatorEntity[NetworkCoordinator], BinarySensorEntity
+):
+    """Binary sensor for remote powerline adapter connectivity."""
+
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+
+    def __init__(
+        self,
+        coordinator: NetworkCoordinator,
+        entry: ConfigEntry,
+        mac: str,
+        host: str,
+    ) -> None:
+        """Initialize the remote adapter binary sensor."""
+        super().__init__(coordinator)
+        self._mac = mac
+        self._attr_unique_id = f"{entry.entry_id}_{mac.replace('-', '')}_connectivity"
+        self._attr_name = f"Powerline {mac}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, mac)},
+            name=f"Powerline Adapter {mac}",
+            manufacturer="TP-Link",
+            model="Powerline Adapter",
+            via_device=(DOMAIN, host),
+        )
+
+    def _find_adapter(self) -> dict[str, Any] | None:
+        """Find this adapter in the coordinator data."""
+        if not self.coordinator.data:
+            return None
+        for adapter in self.coordinator.data.get("adapters", []):
+            if adapter["mac"] == self._mac:
+                return adapter
+        return None
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return True if the remote adapter is connected."""
+        adapter = self._find_adapter()
+        if adapter is None:
+            return None
+        return adapter["tx_rate"] > 0 or adapter["rx_rate"] > 0
