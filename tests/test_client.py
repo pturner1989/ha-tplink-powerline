@@ -155,3 +155,84 @@ async def test_content_type_no_charset() -> None:
         ct = headers.get("Content-Type", "")
         assert ct == "application/x-www-form-urlencoded", f"Bad Content-Type: {ct}"
         assert "charset" not in ct
+
+
+# --- Network data tests ---
+
+
+# TS-01: get_network_data with one remote adapter
+async def test_get_network_data_one_remote() -> None:
+    session = _make_session()
+    session.get.return_value = _make_response(
+        "ERROR=000\r\n"
+        "DIDMNG.GENERAL.MACS=00:00:00:00:00:00,58:04:4f:d8:20:2d,b8:fb:b3:b6:dd:df\r\n"
+        "DIDMNG.GENERAL.RX_BPS=0,10151,0\r\n"
+        "DIDMNG.GENERAL.TX_BPS=0,11733,0\r\n"
+        "SYSTEM.PRODUCTION.MAC_ADDR=b8:fb:b3:b6:dd:df\r\n"
+    )
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    result = await client.get_network_data()
+
+    assert len(result["adapters"]) == 1
+    adapter = result["adapters"][0]
+    assert adapter["mac"] == "58-04-4F-D8-20-2D"
+    assert adapter["tx_rate"] == 11733 // 32
+    assert adapter["rx_rate"] == 10151 // 32
+    assert result["connected_count"] == 1
+    assert result["root_mac"] == "B8-FB-B3-B6-DD-DF"
+
+
+# TS-02: get_network_data with no remote adapters
+async def test_get_network_data_no_remotes() -> None:
+    session = _make_session()
+    session.get.return_value = _make_response(
+        "ERROR=000\r\n"
+        "DIDMNG.GENERAL.MACS=00:00:00:00:00:00,b8:fb:b3:b6:dd:df\r\n"
+        "DIDMNG.GENERAL.RX_BPS=0,0\r\n"
+        "DIDMNG.GENERAL.TX_BPS=0,0\r\n"
+        "SYSTEM.PRODUCTION.MAC_ADDR=b8:fb:b3:b6:dd:df\r\n"
+    )
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    result = await client.get_network_data()
+
+    assert len(result["adapters"]) == 0
+    assert result["connected_count"] == 0
+
+
+# TS-03: get_network_data with disconnected remote adapter
+async def test_get_network_data_disconnected_remote() -> None:
+    session = _make_session()
+    session.get.return_value = _make_response(
+        "ERROR=000\r\n"
+        "DIDMNG.GENERAL.MACS=00:00:00:00:00:00,58:04:4f:d8:20:2d,b8:fb:b3:b6:dd:df\r\n"
+        "DIDMNG.GENERAL.RX_BPS=0,0,0\r\n"
+        "DIDMNG.GENERAL.TX_BPS=0,0,0\r\n"
+        "SYSTEM.PRODUCTION.MAC_ADDR=b8:fb:b3:b6:dd:df\r\n"
+    )
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    result = await client.get_network_data()
+
+    assert len(result["adapters"]) == 1
+    assert result["adapters"][0]["tx_rate"] == 0
+    assert result["adapters"][0]["rx_rate"] == 0
+    assert result["connected_count"] == 0
+
+
+# TS-04: get_network_name returns name
+async def test_get_network_name() -> None:
+    session = _make_session()
+    session.get.return_value = _make_response(
+        "ERROR=000\r\nNODE.GENERAL.DOMAIN_NAME=MyPowerline\r\n"
+    )
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    name = await client.get_network_name()
+
+    assert name == "MyPowerline"
