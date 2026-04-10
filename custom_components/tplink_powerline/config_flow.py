@@ -87,11 +87,12 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
                         entry_data[CONF_PASSWORD_HASH] = password_hash
                     except AuthenticationError:
                         errors["base"] = "invalid_auth"
-                    except (DeviceUnavailable, Exception):
+                    except Exception:
                         _LOGGER.warning(
                             "HTTP validation failed for %s, "
                             "continuing without HTTP features",
                             host,
+                            exc_info=True,
                         )
 
                 if not errors:
