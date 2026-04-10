@@ -77,7 +77,7 @@ class PowerlineClient:
         try:
             async with self._session.post(
                 self._base_url,
-                data=body,
+                data=body.encode("ascii"),
                 headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT),
             ) as resp:
@@ -110,7 +110,7 @@ class PowerlineClient:
         try:
             async with self._session.post(
                 self._base_url,
-                data=f"_t={self.token}&COMMAND=logout",
+                data=f"_t={self.token}&COMMAND=logout".encode("ascii"),
                 headers=self._headers,
                 timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT),
             ) as resp:
