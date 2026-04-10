@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-04-10
-**Status:** Draft
+**Status:** Implemented
 **Linked Specification** `.sdd/ping-availability/specification.md`
 
 ---
