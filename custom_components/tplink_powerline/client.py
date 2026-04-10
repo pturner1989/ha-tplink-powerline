@@ -176,3 +176,45 @@ class PowerlineClient:
             "firmware": data.get("SYSTEM.GENERAL.FW_VERSION", "Unknown"),
             "hardware": data.get("SYSTEM.PRODUCTION.HW_REVISION", "Unknown"),
         }
+
+    async def get_network_name(self) -> str:
+        """Fetch the powerline network name."""
+        data = await self.get_data(["NODE.GENERAL.DOMAIN_NAME"])
+        return data.get("NODE.GENERAL.DOMAIN_NAME", "Unknown")
+
+    async def get_network_data(self) -> dict[str, Any]:
+        """Fetch powerline adapter list and link rates."""
+        data = await self.get_data([
+            "DIDMNG.GENERAL.MACS",
+            "DIDMNG.GENERAL.RX_BPS",
+            "DIDMNG.GENERAL.TX_BPS",
+            "SYSTEM.PRODUCTION.MAC_ADDR",
+        ])
+
+        root_mac = data.get("SYSTEM.PRODUCTION.MAC_ADDR", "").upper().replace(":", "-")
+        macs_raw = data.get("DIDMNG.GENERAL.MACS", "")
+        rx_raw = data.get("DIDMNG.GENERAL.RX_BPS", "")
+        tx_raw = data.get("DIDMNG.GENERAL.TX_BPS", "")
+
+        macs = [m.strip().upper().replace(":", "-") for m in macs_raw.split(",") if m.strip()]
+        rx_vals = [int(v) if v.strip().isdigit() else 0 for v in rx_raw.split(",")]
+        tx_vals = [int(v) if v.strip().isdigit() else 0 for v in tx_raw.split(",")]
+
+        null_mac = "00-00-00-00-00-00"
+        adapters = []
+        connected_count = 0
+
+        for i, mac in enumerate(macs):
+            if mac == null_mac or mac == root_mac or not mac:
+                continue
+            rx = rx_vals[i] // 32 if i < len(rx_vals) else 0
+            tx = tx_vals[i] // 32 if i < len(tx_vals) else 0
+            adapters.append({"mac": mac, "tx_rate": tx, "rx_rate": rx})
+            if tx > 0 or rx > 0:
+                connected_count += 1
+
+        return {
+            "adapters": adapters,
+            "connected_count": connected_count,
+            "root_mac": root_mac,
+        }

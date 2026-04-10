@@ -9,3 +9,4 @@ FAILURE_THRESHOLD = 8  # consecutive failures before unavailable
 CONF_PASSWORD_HASH = "password_hash"
 HTTP_TIMEOUT = 10  # seconds
 CONTENT_TYPE = "application/x-www-form-urlencoded"
+NETWORK_SCAN_INTERVAL = 60  # seconds
