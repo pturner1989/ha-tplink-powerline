@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DEFAULT_NAME, DOMAIN, PING_TIMEOUT
+from .client import AuthenticationError, DeviceUnavailable, PowerlineClient
+from .const import CONF_PASSWORD_HASH, DEFAULT_NAME, DOMAIN, PING_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,6 +21,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
+        vol.Optional(CONF_PASSWORD, default=""): str,
     }
 )
 
@@ -59,12 +63,42 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(host)
             self._abort_if_unique_id_configured()
 
-            if await async_ping(host):
-                return self.async_create_entry(
-                    title=user_input.get(CONF_NAME, DEFAULT_NAME),
-                    data=user_input,
-                )
-            errors["base"] = "cannot_connect"
+            if not await async_ping(host):
+                errors["base"] = "cannot_connect"
+            else:
+                password = user_input.get(CONF_PASSWORD, "")
+                entry_data = {
+                    CONF_HOST: host,
+                    CONF_NAME: user_input.get(CONF_NAME, DEFAULT_NAME),
+                }
+
+                if password:
+                    password_hash = hashlib.md5(
+                        password.encode()
+                    ).hexdigest()
+                    client = PowerlineClient(
+                        host,
+                        password_hash,
+                        async_get_clientsession(self.hass),
+                    )
+                    try:
+                        await client.login()
+                        await client.logout()
+                        entry_data[CONF_PASSWORD_HASH] = password_hash
+                    except AuthenticationError:
+                        errors["base"] = "invalid_auth"
+                    except (DeviceUnavailable, Exception):
+                        _LOGGER.warning(
+                            "HTTP validation failed for %s, "
+                            "continuing without HTTP features",
+                            host,
+                        )
+
+                if not errors:
+                    return self.async_create_entry(
+                        title=entry_data[CONF_NAME],
+                        data=entry_data,
+                    )
 
         return self.async_show_form(
             step_id="user",
