@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4FC3F7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0288D1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect x="16" y="16" width="480" height="480" rx="80" ry="80" fill="url(#bg)" />
+
+  <!-- Power plug prong left -->
+  <rect x="170" y="80" width="36" height="100" rx="8" fill="white" />
+  <!-- Power plug prong right -->
+  <rect x="306" y="80" width="36" height="100" rx="8" fill="white" />
+
+  <!-- Plug body -->
+  <rect x="140" y="160" width="232" height="80" rx="16" fill="white" />
+
+  <!-- Cable from plug down -->
+  <rect x="238" y="240" width="36" height="60" rx="4" fill="white" />
+
+  <!-- Network signal waves -->
+  <!-- Inner arc -->
+  <path d="M 200 340 A 70 70 0 0 1 312 340" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" />
+  <!-- Outer arc -->
+  <path d="M 160 370 A 110 110 0 0 1 352 370" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" />
+
+  <!-- Dot at center bottom -->
+  <circle cx="256" cy="400" r="24" fill="white" />
+</svg>
