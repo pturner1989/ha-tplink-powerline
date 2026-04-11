@@ -29,6 +29,10 @@ class UnexpectedResponse(Exception):
     """Raised when the device returns an unparseable response."""
 
 
+class IncompatibleDevice(Exception):
+    """Raised when the device's HTTP portal is not compatible."""
+
+
 def _parse_response(text: str) -> tuple[str, dict[str, str]]:
     """Parse a device response into error code and key-value data."""
     data: dict[str, str] = {}
@@ -87,7 +91,20 @@ class PowerlineClient:
                 f"Cannot connect to {self.host}"
             ) from err
 
+        # Detect incompatible portal (HTML, JSON, or no ERROR= pattern)
+        text_lower = text.strip().lower()
+        if "<html" in text_lower or "<!doctype" in text_lower:
+            raise IncompatibleDevice(
+                f"Device at {self.host} returned HTML — portal is not compatible"
+            )
+
         error_code, data = _parse_response(text)
+
+        if not error_code:
+            raise IncompatibleDevice(
+                f"Device at {self.host} returned unexpected format — "
+                "portal is not compatible"
+            )
 
         if error_code == "000":
             self.token = data.get("TOKEN")
@@ -260,6 +277,8 @@ class PowerlineClient:
 
     async def get_network_data(self) -> dict[str, Any]:
         """Fetch powerline adapter list and link rates."""
+        _empty = {"adapters": [], "connected_count": 0, "root_mac": ""}
+
         data = await self.get_data([
             "DIDMNG.GENERAL.MACS",
             "DIDMNG.GENERAL.RX_BPS",
@@ -267,30 +286,37 @@ class PowerlineClient:
             "SYSTEM.PRODUCTION.MAC_ADDR",
         ])
 
-        root_mac = data.get("SYSTEM.PRODUCTION.MAC_ADDR", "").upper().replace(":", "-")
-        macs_raw = data.get("DIDMNG.GENERAL.MACS", "")
-        rx_raw = data.get("DIDMNG.GENERAL.RX_BPS", "")
-        tx_raw = data.get("DIDMNG.GENERAL.TX_BPS", "")
+        try:
+            root_mac = data.get("SYSTEM.PRODUCTION.MAC_ADDR", "").upper().replace(":", "-")
+            macs_raw = data.get("DIDMNG.GENERAL.MACS", "")
+            rx_raw = data.get("DIDMNG.GENERAL.RX_BPS", "")
+            tx_raw = data.get("DIDMNG.GENERAL.TX_BPS", "")
 
-        macs = [m.strip().upper().replace(":", "-") for m in macs_raw.split(",") if m.strip()]
-        rx_vals = [int(v) if v.strip().isdigit() else 0 for v in rx_raw.split(",")]
-        tx_vals = [int(v) if v.strip().isdigit() else 0 for v in tx_raw.split(",")]
+            if not macs_raw.strip():
+                return {**_empty, "root_mac": root_mac}
 
-        null_mac = "00-00-00-00-00-00"
-        adapters = []
-        connected_count = 0
+            macs = [m.strip().upper().replace(":", "-") for m in macs_raw.split(",") if m.strip()]
+            rx_vals = [int(v) if v.strip().isdigit() else 0 for v in rx_raw.split(",") if v.strip()]
+            tx_vals = [int(v) if v.strip().isdigit() else 0 for v in tx_raw.split(",") if v.strip()]
 
-        for i, mac in enumerate(macs):
-            if mac == null_mac or mac == root_mac or not mac:
-                continue
-            rx = rx_vals[i] // 32 if i < len(rx_vals) else 0
-            tx = tx_vals[i] // 32 if i < len(tx_vals) else 0
-            adapters.append({"mac": mac, "tx_rate": tx, "rx_rate": rx})
-            if tx > 0 or rx > 0:
-                connected_count += 1
+            null_mac = "00-00-00-00-00-00"
+            adapters = []
+            connected_count = 0
 
-        return {
-            "adapters": adapters,
-            "connected_count": connected_count,
-            "root_mac": root_mac,
-        }
+            for i, mac in enumerate(macs):
+                if mac == null_mac or mac == root_mac or not mac:
+                    continue
+                rx = rx_vals[i] // 32 if i < len(rx_vals) else 0
+                tx = tx_vals[i] // 32 if i < len(tx_vals) else 0
+                adapters.append({"mac": mac, "tx_rate": tx, "rx_rate": rx})
+                if tx > 0 or rx > 0:
+                    connected_count += 1
+
+            return {
+                "adapters": adapters,
+                "connected_count": connected_count,
+                "root_mac": root_mac,
+            }
+        except (ValueError, KeyError, IndexError) as err:
+            _LOGGER.warning("Failed to parse network data: %s", err)
+            return _empty
