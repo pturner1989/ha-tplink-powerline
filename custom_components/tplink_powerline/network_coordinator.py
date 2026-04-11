@@ -9,7 +9,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .client import DeviceUnavailable, PowerlineClient, UnexpectedResponse
+from .client import PowerlineClient
 from .const import ETHERNET_PORT_STATUS, NETWORK_SCAN_INTERVAL, QOS_MODES
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class NetworkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Fetch all network and device status data."""
         try:
             network = await self.client.get_network_data()
-        except (DeviceUnavailable, UnexpectedResponse) as err:
+        except Exception as err:
             raise UpdateFailed(f"Failed to fetch network data: {err}") from err
 
         result: dict[str, Any] = {
