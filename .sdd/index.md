@@ -4,7 +4,7 @@
 
 | Date | Feature | Specification | Design | Status |
 |------|---------|---------------|--------|--------|
-| 2026-04-11 | [graceful-compatibility](graceful-compatibility/) | [spec](graceful-compatibility/specification.md) | [design](graceful-compatibility/design.md) | Draft |
+| 2026-04-11 | [graceful-compatibility](graceful-compatibility/) | [spec](graceful-compatibility/specification.md) | [design](graceful-compatibility/design.md) | Implemented |
 | 2026-04-11 | [device-controls-status](device-controls-status/) | [spec](device-controls-status/specification.md) | [design](device-controls-status/design.md) | Implemented |
 | 2026-04-10 | [powerline-network-monitoring](powerline-network-monitoring/) | [spec](powerline-network-monitoring/specification.md) | [design](powerline-network-monitoring/design.md) | Implemented |
 | 2026-04-10 | [device-info-http](device-info-http/) | [spec](device-info-http/specification.md) | [design](device-info-http/design.md) | Implemented |
