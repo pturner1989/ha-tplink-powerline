@@ -15,6 +15,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .client import PowerlineClient
 from .const import DOMAIN, QOS_MODES_REVERSE, REBOOT_CYCLES, REBOOT_CYCLES_REVERSE
+
+WEEKDAYS = {
+    "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday",
+    "5": "Friday", "6": "Saturday", "7": "Sunday",
+}
+WEEKDAYS_REVERSE = {v: k for k, v in WEEKDAYS.items()}
+
+MONTH_DAYS = {str(i): f"{i}" for i in range(1, 29)}
+MONTH_DAYS_REVERSE = {v: k for k, v in MONTH_DAYS.items()}
 from .network_coordinator import NetworkCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,6 +51,8 @@ async def async_setup_entry(
 
     if network_coordinator.data and network_coordinator.data.get("reboot_schedule") is not None:
         entities.append(RebootCycleSelect(network_coordinator, client, entry, host, name))
+        entities.append(RebootWeekdaySelect(network_coordinator, client, entry, host, name))
+        entities.append(RebootMonthdaySelect(network_coordinator, client, entry, host, name))
 
     async_add_entities(entities)
 
@@ -96,4 +107,59 @@ class RebootCycleSelect(CoordinatorEntity[NetworkCoordinator], SelectEntity):
     async def async_select_option(self, option: str) -> None:
         cycle_num = REBOOT_CYCLES_REVERSE.get(option, "1")
         await self._client.set_data({"TPLINK.REBOOTSCHEDULE.REPEAT": cycle_num})
+        await self.coordinator.async_request_refresh()
+
+
+class RebootWeekdaySelect(CoordinatorEntity[NetworkCoordinator], SelectEntity):
+    """Select entity for reboot schedule weekday (when cycle is Weekly)."""
+
+    _attr_options = list(WEEKDAYS.values())
+    _attr_icon = "mdi:calendar-week"
+
+    def __init__(self, coordinator, client, entry, host, name):
+        super().__init__(coordinator)
+        self._client = client
+        self._attr_unique_id = f"{entry.entry_id}_reboot_weekday"
+        self._attr_name = f"{name} Reboot Weekday"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+
+    @property
+    def current_option(self) -> str | None:
+        if not self.coordinator.data:
+            return None
+        schedule = self.coordinator.data.get("reboot_schedule")
+        if schedule is None or str(schedule.get("repeat")) != "2":
+            return None
+        return WEEKDAYS.get(str(schedule.get("weekday", 1)), "Monday")
+
+    async def async_select_option(self, option: str) -> None:
+        day_num = WEEKDAYS_REVERSE.get(option, "1")
+        await self._client.set_data({"TPLINK.REBOOTSCHEDULE.WEEKDAY": day_num})
+        await self.coordinator.async_request_refresh()
+
+
+class RebootMonthdaySelect(CoordinatorEntity[NetworkCoordinator], SelectEntity):
+    """Select entity for reboot schedule day of month (when cycle is Monthly)."""
+
+    _attr_options = [str(i) for i in range(1, 29)]
+    _attr_icon = "mdi:calendar-month"
+
+    def __init__(self, coordinator, client, entry, host, name):
+        super().__init__(coordinator)
+        self._client = client
+        self._attr_unique_id = f"{entry.entry_id}_reboot_monthday"
+        self._attr_name = f"{name} Reboot Day of Month"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+
+    @property
+    def current_option(self) -> str | None:
+        if not self.coordinator.data:
+            return None
+        schedule = self.coordinator.data.get("reboot_schedule")
+        if schedule is None or str(schedule.get("repeat")) != "3":
+            return None
+        return str(schedule.get("monthday", 1))
+
+    async def async_select_option(self, option: str) -> None:
+        await self._client.set_data({"TPLINK.REBOOTSCHEDULE.MONTHDAY": option})
         await self.coordinator.async_request_refresh()

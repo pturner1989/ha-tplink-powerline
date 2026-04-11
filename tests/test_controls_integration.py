@@ -119,8 +119,9 @@ async def test_full_setup_creates_all_controls(hass: HomeAssistant) -> None:
     assert hass.states.get("select.powerline_network_qos_mode").state == "Fair"
     assert hass.states.get("select.powerline_network_reboot_cycle") is not None
 
-    # Number
-    assert hass.states.get("number.powerline_network_reboot_day") is not None
+    # Reboot day selects (weekday unavailable since cycle is Daily, monthday unavailable)
+    assert hass.states.get("select.powerline_network_reboot_weekday") is not None
+    assert hass.states.get("select.powerline_network_reboot_day_of_month") is not None
 
     # Ethernet ports
     assert hass.states.get("binary_sensor.powerline_network_ethernet_port_1") is not None
