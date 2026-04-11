@@ -87,7 +87,7 @@ def _mock_http_client() -> AsyncMock:
 
 # ITS-01: Full setup creates all control entities
 async def test_full_setup_creates_all_controls(hass: HomeAssistant) -> None:
-    entry = _make_config_entry(password_hash="cc03e747a6afbbcbf8be7668acfebee5")
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
     entry.add_to_hass(hass)
     mock_client = _mock_http_client()
 

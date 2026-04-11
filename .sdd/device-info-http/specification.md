@@ -79,7 +79,7 @@ The integration currently registers powerline devices with a placeholder model n
 - Steps:
   1. Remove any existing TP-Link Powerline config entry
   2. Add the integration via Settings > Devices & Services
-  3. Enter IP `192.168.1.34`, password `test123`, name "Powerline Network"
+  3. Enter IP `192.168.1.34`, password ``<password>``, name "Powerline Network"
   4. Submit the form
 - Expected: Config entry created. Device shows model "PG2400P", firmware "1.0.3 Build 20221213 Rel.62540", hardware "1.0". Three diagnostic sensors appear with these values.
 

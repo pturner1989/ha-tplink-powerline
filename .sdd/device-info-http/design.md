@@ -474,7 +474,7 @@ TplinkPowerlineSensor(SensorEntity):
 ## Test Data
 
 - Mocked HTTP responses: login success (`ERROR=000\r\nTOKEN=testtoken123\r\n`), login failure (`ERROR=006\r\nLOGIN_TIMES=1\r\n`), device info (`ERROR=000\r\nSYSTEM.PRODUCTION.HW_PRODUCT=PG2400P\r\nSYSTEM.PRODUCTION.HW_REVISION=1.0\r\nSYSTEM.GENERAL.FW_VERSION=1.0.3 Build 20221213 Rel.62540\r\n`)
-- Config entry data: `{host: "192.168.1.34", name: "Powerline Network", password_hash: "cc03e747a6afbbcbf8be7668acfebee5"}`
+- Config entry data: `{host: "192.168.1.34", name: "Powerline Network", password_hash: "`<md5_hash>`"}`
 
 ---
 

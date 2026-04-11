@@ -164,7 +164,7 @@ async def test_failure_threshold_causes_state_transition(hass: HomeAssistant) ->
 
 
 async def test_setup_with_password_fetches_device_info(hass: HomeAssistant) -> None:
-    entry = _make_config_entry(password_hash="cc03e747a6afbbcbf8be7668acfebee5")
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
     entry.add_to_hass(hass)
     mock_client = _mock_http_client()
     with (
@@ -181,7 +181,7 @@ async def test_setup_with_password_fetches_device_info(hass: HomeAssistant) -> N
 
 async def test_setup_with_password_http_fails_gracefully(hass: HomeAssistant) -> None:
     from custom_components.tplink_powerline.client import DeviceUnavailable
-    entry = _make_config_entry(password_hash="cc03e747a6afbbcbf8be7668acfebee5")
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
     entry.add_to_hass(hass)
     mock_client = AsyncMock()
     mock_client.login.side_effect = DeviceUnavailable("Connection refused")
@@ -212,7 +212,7 @@ async def test_setup_without_password_skips_http(hass: HomeAssistant) -> None:
 
 
 async def test_unload_logs_out_http_client(hass: HomeAssistant) -> None:
-    entry = _make_config_entry(password_hash="cc03e747a6afbbcbf8be7668acfebee5")
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
     entry.add_to_hass(hass)
     mock_client = _mock_http_client()
     with (
@@ -231,7 +231,7 @@ async def test_unload_logs_out_http_client(hass: HomeAssistant) -> None:
 
 async def test_setup_creates_network_coordinator(hass: HomeAssistant) -> None:
     """TS-05: Setup with password creates network coordinator."""
-    entry = _make_config_entry(password_hash="cc03e747a6afbbcbf8be7668acfebee5")
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
     entry.add_to_hass(hass)
     mock_client = _mock_http_client()
     with (

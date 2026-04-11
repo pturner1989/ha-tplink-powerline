@@ -106,12 +106,12 @@ async def test_config_flow_with_valid_password(
             {
                 CONF_HOST: "192.168.1.34",
                 CONF_NAME: "Powerline",
-                CONF_PASSWORD: "test123",
+                CONF_PASSWORD: "testpassword",
             },
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"][CONF_PASSWORD_HASH] == "cc03e747a6afbbcbf8be7668acfebee5"
+    assert result["data"][CONF_PASSWORD_HASH] == "e16b2ab8d12314bf4efbd6203906ea6c"
     mock_client.login.assert_awaited_once()
     mock_client.logout.assert_awaited_once()
 

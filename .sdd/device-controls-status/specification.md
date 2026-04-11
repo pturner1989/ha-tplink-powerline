@@ -96,7 +96,7 @@ The integration provides monitoring but no control over the powerline device. Us
 **QA-01: LED controls**
 - Goal: Validate LED switch and night mode controls
 - Steps:
-  1. Set up integration with IP `192.168.1.34`, password `test123`
+  1. Set up integration with IP `192.168.1.34`, password ``<password>``
   2. Find the LED switch entity and toggle it off
   3. Observe LEDs on the physical device turn off
   4. Toggle it back on

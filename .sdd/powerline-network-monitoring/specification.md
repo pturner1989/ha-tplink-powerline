@@ -88,7 +88,7 @@ Users with TP-Link powerline networks have no visibility into the link quality b
 **QA-01: Remote adapter discovered and sensors appear**
 - Goal: Validate full discovery and entity creation
 - Steps:
-  1. Set up the integration with IP `192.168.1.34`, password `test123`
+  1. Set up the integration with IP `192.168.1.34`, password ``<password>``
   2. Wait for setup to complete
   3. Check Settings > Devices & Services
 - Expected: Two devices: "Powerline Network" (root) and "Powerline Adapter 58:04:4F:D8:20:2D" (remote). Remote device has TX rate, RX rate, and connectivity sensors. Root device has connected adapters count sensor and network name sensor.
