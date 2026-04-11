@@ -110,3 +110,17 @@ LICENSE
 - `hacs.json` with correct metadata
 - `manifest.json` includes `version`, `documentation`, `issue_tracker`, `iot_class: "local_polling"`
 - Repository follows default HACS structure (integration in `custom_components/`)
+
+## Releasing
+
+HACS uses GitHub Releases (not just tags) to determine the version shown to users. Follow these steps for each release:
+
+1. **Update the version** in `custom_components/tplink_powerline/manifest.json` (e.g., `"0.2.0"`)
+2. **Commit and push** the version bump to master
+3. **Create a GitHub Release** with a tag matching the version:
+   ```bash
+   gh release create v0.2.0 --title "v0.2.0 — Short description" --notes "Changelog here"
+   ```
+4. The tag name **must** match the `version` in `manifest.json` (prefixed with `v`)
+5. Write release notes summarising what changed — new features, fixes, breaking changes
+6. HACS picks up the latest release automatically; users see the update in their HACS dashboard
