@@ -42,6 +42,28 @@ def _mock_http_client() -> AsyncMock:
     }
     client.get_network_name.return_value = "MyPowerline"
     client.get_network_data.return_value = SAMPLE_NETWORK_DATA
+
+    async def mock_get_data(keys):
+        if "TPLINK.LEDSCHEDULE.LED_ENABLE" in keys:
+            return {"TPLINK.LEDSCHEDULE.LED_ENABLE": "YES", "TPLINK.LEDSCHEDULE.ENABLE": "NO",
+                    "TPLINK.LEDSCHEDULE.START_HOUR": "21", "TPLINK.LEDSCHEDULE.START_MINUTE": "0",
+                    "TPLINK.LEDSCHEDULE.END_HOUR": "6", "TPLINK.LEDSCHEDULE.END_MINUTE": "0"}
+        if "TPLINK.REBOOTSCHEDULE.ENABLE" in keys:
+            return {"TPLINK.REBOOTSCHEDULE.ENABLE": "NO", "TPLINK.REBOOTSCHEDULE.HOUR": "0",
+                    "TPLINK.REBOOTSCHEDULE.MINUTE": "0", "TPLINK.REBOOTSCHEDULE.REPEAT": "1",
+                    "TPLINK.REBOOTSCHEDULE.WEEKDAY": "0", "TPLINK.REBOOTSCHEDULE.MONTHDAY": "1"}
+        return {}
+
+    client.get_data = AsyncMock(side_effect=mock_get_data)
+
+    async def mock_send_command(cmd):
+        if cmd == "get qos":
+            return {"RESULT": "1"}
+        if cmd == "lan link speed":
+            return {"PORT1": "0", "PORT2": "6"}
+        return {}
+
+    client.send_command = AsyncMock(side_effect=mock_send_command)
     return client
 
 
@@ -220,7 +242,10 @@ async def test_setup_creates_network_coordinator(hass: HomeAssistant) -> None:
         await hass.async_block_till_done()
     ed = hass.data[DOMAIN][entry.entry_id]
     assert ed["network_coordinator"] is not None
-    assert ed["network_coordinator"].data == SAMPLE_NETWORK_DATA
+    assert ed["network_coordinator"].data["adapters"] == SAMPLE_NETWORK_DATA["adapters"]
+    assert ed["network_coordinator"].data["connected_count"] == 1
+    assert ed["network_coordinator"].data["led"] is not None
+    assert ed["network_coordinator"].data["qos_mode"] is not None
     assert ed["network_name"] == "MyPowerline"
 
 
