@@ -259,3 +259,48 @@ async def test_setup_without_password_no_network_coordinator(hass: HomeAssistant
     ed = hass.data[DOMAIN][entry.entry_id]
     assert ed["network_coordinator"] is None
     assert ed["network_name"] is None
+
+
+# --- Per-feature probe tests (TS-10, TS-11) ---
+
+
+async def test_device_info_failure_doesnt_block_network(hass: HomeAssistant) -> None:
+    """TS-10: Device info failure doesn't block network coordinator."""
+    from custom_components.tplink_powerline.client import UnexpectedResponse
+
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
+    entry.add_to_hass(hass)
+    mock_client = _mock_http_client()
+    mock_client.get_device_info.side_effect = UnexpectedResponse("Bad data")
+
+    with (
+        patch("custom_components.tplink_powerline.coordinator.asyncio.create_subprocess_exec", return_value=_mock_process(0)),
+        patch("custom_components.tplink_powerline.PowerlineClient", return_value=mock_client),
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    ed = hass.data[DOMAIN][entry.entry_id]
+    assert ed["device_info"] is None
+    assert ed["network_coordinator"] is not None
+
+
+async def test_network_coordinator_failure_doesnt_block_device_info(hass: HomeAssistant) -> None:
+    """TS-11: Network coordinator failure doesn't block device info."""
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
+    entry.add_to_hass(hass)
+    mock_client = _mock_http_client()
+    # Make get_network_data raise so coordinator first refresh fails
+    mock_client.get_network_data.side_effect = Exception("Network not supported")
+
+    with (
+        patch("custom_components.tplink_powerline.coordinator.asyncio.create_subprocess_exec", return_value=_mock_process(0)),
+        patch("custom_components.tplink_powerline.PowerlineClient", return_value=mock_client),
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    ed = hass.data[DOMAIN][entry.entry_id]
+    assert ed["device_info"] is not None
+    assert ed["device_info"]["model"] == "PG2400P"
+    assert ed["network_coordinator"] is None

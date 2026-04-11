@@ -12,7 +12,12 @@ from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .client import AuthenticationError, DeviceUnavailable, PowerlineClient
+from .client import (
+    AuthenticationError,
+    DeviceUnavailable,
+    IncompatibleDevice,
+    PowerlineClient,
+)
 from .const import CONF_PASSWORD_HASH, DEFAULT_NAME, DOMAIN, PING_TIMEOUT
 
 _LOGGER = logging.getLogger(__name__)
@@ -51,6 +56,10 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self._user_input: dict[str, str] | None = None
+
     async def async_step_user(
         self, user_input: dict[str, str] | None = None
     ) -> ConfigFlowResult:
@@ -87,6 +96,13 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
                         entry_data[CONF_PASSWORD_HASH] = password_hash
                     except AuthenticationError:
                         errors["base"] = "invalid_auth"
+                    except IncompatibleDevice:
+                        _LOGGER.warning(
+                            "Device at %s has an incompatible web portal",
+                            host,
+                        )
+                        self._user_input = entry_data
+                        return await self.async_step_confirm_ping_only()
                     except Exception:
                         _LOGGER.warning(
                             "HTTP validation failed for %s, "
@@ -106,3 +122,16 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
         )
+
+    async def async_step_confirm_ping_only(
+        self, user_input: dict[str, str] | None = None
+    ) -> ConfigFlowResult:
+        """Handle the incompatible device confirmation step."""
+        if user_input is not None:
+            # User confirmed — create entry in ping-only mode (no password hash)
+            return self.async_create_entry(
+                title=self._user_input[CONF_NAME],
+                data=self._user_input,
+            )
+
+        return self.async_show_form(step_id="confirm_ping_only")

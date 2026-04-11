@@ -41,28 +41,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         host = entry.data[CONF_HOST]
         session = async_get_clientsession(hass)
         client = PowerlineClient(host, password_hash, session)
+
+        # Login
         try:
             await client.login()
-            device_info = await client.get_device_info()
-            network_name = await client.get_network_name()
-            _LOGGER.info(
-                "Fetched device info for %s: %s", host, device_info
-            )
-
-            net_coord = NetworkCoordinator(hass, client)
-            await net_coord.async_config_entry_first_refresh()
-            network_coordinator = net_coord
         except Exception:
             _LOGGER.warning(
-                "Failed to fetch device info via HTTP for %s, "
-                "continuing in ping-only mode",
+                "HTTP login failed for %s, continuing in ping-only mode",
                 host,
                 exc_info=True,
             )
             client = None
-            device_info = None
-            network_name = None
-            network_coordinator = None
+
+        # Device info
+        if client:
+            try:
+                device_info = await client.get_device_info()
+                _LOGGER.info("Fetched device info for %s: %s", host, device_info)
+            except Exception:
+                _LOGGER.warning(
+                    "Failed to fetch device info for %s", host, exc_info=True
+                )
+
+        # Network name
+        if client:
+            try:
+                network_name = await client.get_network_name()
+            except Exception:
+                _LOGGER.warning(
+                    "Failed to fetch network name for %s", host, exc_info=True
+                )
+
+        # Network coordinator
+        if client:
+            try:
+                net_coord = NetworkCoordinator(hass, client)
+                await net_coord.async_config_entry_first_refresh()
+                network_coordinator = net_coord
+            except Exception:
+                _LOGGER.warning(
+                    "Failed to start network monitoring for %s", host, exc_info=True
+                )
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {

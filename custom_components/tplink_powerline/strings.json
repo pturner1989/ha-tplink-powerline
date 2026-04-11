@@ -14,6 +14,10 @@
           "name": "A friendly name for this powerline network",
           "password": "The admin password for the device's web portal (optional)"
         }
+      },
+      "confirm_ping_only": {
+        "title": "Incompatible Device",
+        "description": "This device's web portal is not compatible with this integration. You can continue with ping-only monitoring (basic availability only) or go back to check the device address."
       }
     },
     "error": {
