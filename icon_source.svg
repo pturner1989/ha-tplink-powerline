@@ -9,22 +9,22 @@
   <rect x="16" y="16" width="480" height="480" rx="80" ry="80" fill="url(#bg)" />
 
   <!-- Power plug prong left -->
-  <rect x="170" y="80" width="36" height="100" rx="8" fill="white" />
+  <rect x="170" y="70" width="36" height="90" rx="8" fill="white" />
   <!-- Power plug prong right -->
-  <rect x="306" y="80" width="36" height="100" rx="8" fill="white" />
+  <rect x="306" y="70" width="36" height="90" rx="8" fill="white" />
 
   <!-- Plug body -->
-  <rect x="140" y="160" width="232" height="80" rx="16" fill="white" />
+  <rect x="140" y="140" width="232" height="72" rx="16" fill="white" />
 
   <!-- Cable from plug down -->
-  <rect x="238" y="240" width="36" height="50" rx="4" fill="white" />
+  <rect x="238" y="212" width="36" height="40" rx="4" fill="white" />
 
-  <!-- Network signal waves - outer arc first, then inner, spaced apart -->
+  <!-- Network signal waves - well separated -->
   <!-- Outer arc -->
-  <path d="M 140 390 A 130 130 0 0 1 372 390" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" />
+  <path d="M 110 400 A 160 160 0 0 1 402 400" fill="none" stroke="white" stroke-width="22" stroke-linecap="round" />
   <!-- Inner arc -->
-  <path d="M 196 370 A 72 72 0 0 1 316 370" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" />
+  <path d="M 180 380 A 85 85 0 0 1 332 380" fill="none" stroke="white" stroke-width="22" stroke-linecap="round" />
 
   <!-- Dot at center bottom -->
-  <circle cx="256" cy="400" r="24" fill="white" />
+  <circle cx="256" cy="420" r="22" fill="white" />
 </svg>
