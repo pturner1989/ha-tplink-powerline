@@ -123,3 +123,11 @@ async def test_network_fetch_failure(hass: HomeAssistant) -> None:
     coordinator = NetworkCoordinator(hass, client)
     with pytest.raises(UpdateFailed):
         await coordinator._async_update_data()
+
+
+# TS-12: ValueError from parsing raises UpdateFailed
+async def test_value_error_raises_update_failed(hass: HomeAssistant) -> None:
+    client = _make_client(error=ValueError("invalid literal"))
+    coordinator = NetworkCoordinator(hass, client)
+    with pytest.raises(UpdateFailed):
+        await coordinator._async_update_data()

@@ -10,6 +10,7 @@ import pytest
 from custom_components.tplink_powerline.client import (
     AuthenticationError,
     DeviceUnavailable,
+    IncompatibleDevice,
     PowerlineClient,
     UnexpectedResponse,
 )
@@ -299,3 +300,89 @@ async def test_get_network_name() -> None:
     name = await client.get_network_name()
 
     assert name == "MyPowerline"
+
+
+# --- Compatibility tests ---
+
+
+# TS-01: Login detects HTML response as incompatible
+async def test_login_html_response_raises_incompatible() -> None:
+    session = _make_session()
+    session.post.return_value = _make_response(
+        "<!DOCTYPE html><html><body>Not a powerline</body></html>"
+    )
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+
+    with pytest.raises(IncompatibleDevice):
+        await client.login()
+
+
+# TS-02: Login detects unparseable response as incompatible
+async def test_login_no_error_pattern_raises_incompatible() -> None:
+    session = _make_session()
+    session.post.return_value = _make_response('{"error": "unknown"}')
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+
+    with pytest.raises(IncompatibleDevice):
+        await client.login()
+
+
+# TS-03: Login still works for compatible device (regression)
+async def test_login_compatible_still_works() -> None:
+    session = _make_session()
+    session.post.return_value = _make_response("ERROR=000\r\nTOKEN=abc123\r\n")
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+
+    await client.login()
+
+    assert client.token == "abc123"
+
+
+# TS-04: Login still raises AuthenticationError for wrong password (regression)
+async def test_login_wrong_password_still_works() -> None:
+    session = _make_session()
+    session.post.return_value = _make_response("ERROR=006\r\n")
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+
+    with pytest.raises(AuthenticationError):
+        await client.login()
+
+
+# TS-05: get_network_data handles mismatched array lengths
+async def test_network_data_mismatched_arrays() -> None:
+    session = _make_session()
+    session.get.return_value = _make_response(
+        "ERROR=000\r\n"
+        "DIDMNG.GENERAL.MACS=00:00:00:00:00:00,58:04:4f:d8:20:2d,aa:bb:cc:dd:ee:ff\r\n"
+        "DIDMNG.GENERAL.RX_BPS=0\r\n"
+        "DIDMNG.GENERAL.TX_BPS=0,100\r\n"
+        "SYSTEM.PRODUCTION.MAC_ADDR=aa:bb:cc:dd:ee:ff\r\n"
+    )
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    result = await client.get_network_data()
+
+    assert len(result["adapters"]) == 1
+    assert result["adapters"][0]["mac"] == "58-04-4F-D8-20-2D"
+    assert result["adapters"][0]["rx_rate"] == 0  # missing index, defaults to 0
+    assert result["adapters"][0]["tx_rate"] == 100 // 32
+
+
+# TS-06: get_network_data handles empty MACS
+async def test_network_data_empty_macs() -> None:
+    session = _make_session()
+    session.get.return_value = _make_response(
+        "ERROR=000\r\n"
+        "DIDMNG.GENERAL.MACS=\r\n"
+        "DIDMNG.GENERAL.RX_BPS=\r\n"
+        "DIDMNG.GENERAL.TX_BPS=\r\n"
+        "SYSTEM.PRODUCTION.MAC_ADDR=aa:bb:cc:dd:ee:ff\r\n"
+    )
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    result = await client.get_network_data()
+
+    assert len(result["adapters"]) == 0
+    assert result["connected_count"] == 0
