@@ -37,10 +37,17 @@ async def async_setup_entry(
 
     if network_coordinator and network_coordinator.data:
         host = entry.data[CONF_HOST]
+        name = entry.data[CONF_NAME]
         for adapter in network_coordinator.data.get("adapters", []):
             entities.append(
                 RemoteAdapterBinarySensor(
                     network_coordinator, entry, adapter["mac"], host
+                )
+            )
+        for port in network_coordinator.data.get("ethernet_ports", []) or []:
+            entities.append(
+                EthernetPortBinarySensor(
+                    network_coordinator, entry, port["port"], host, name
                 )
             )
 
@@ -137,3 +144,55 @@ class RemoteAdapterBinarySensor(
         if adapter is None:
             return None
         return adapter["tx_rate"] > 0 or adapter["rx_rate"] > 0
+
+
+class EthernetPortBinarySensor(
+    CoordinatorEntity[NetworkCoordinator], BinarySensorEntity
+):
+    """Binary sensor for an ethernet port on the root device."""
+
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+
+    def __init__(
+        self,
+        coordinator: NetworkCoordinator,
+        entry: ConfigEntry,
+        port_num: int,
+        host: str,
+        name: str,
+    ) -> None:
+        """Initialize the ethernet port binary sensor."""
+        super().__init__(coordinator)
+        self._port_num = port_num
+        self._attr_unique_id = f"{entry.entry_id}_ethernet_port_{port_num}"
+        self._attr_name = f"{name} Ethernet Port {port_num}"
+        self._attr_icon = "mdi:ethernet"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+
+    def _find_port(self) -> dict[str, Any] | None:
+        if not self.coordinator.data:
+            return None
+        ports = self.coordinator.data.get("ethernet_ports")
+        if not ports:
+            return None
+        for port in ports:
+            if port["port"] == self._port_num:
+                return port
+        return None
+
+    @property
+    def is_on(self) -> bool | None:
+        port = self._find_port()
+        if port is None:
+            return None
+        return port["connected"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        port = self._find_port()
+        if port is None:
+            return {}
+        return {
+            "speed": port["speed"],
+            "duplex": port["duplex"],
+        }

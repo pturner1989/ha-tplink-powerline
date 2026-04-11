@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 from homeassistant.const import CONF_HOST, CONF_NAME
 
 from custom_components.tplink_powerline.binary_sensor import (
+    EthernetPortBinarySensor,
     RemoteAdapterBinarySensor,
     TplinkPowerlineBinarySensor,
 )
@@ -108,3 +109,33 @@ def test_remote_adapter_device_has_via_device() -> None:
     assert di["via_device"] == (DOMAIN, "192.168.1.34")
     assert (DOMAIN, "58-04-4F-D8-20-2D") in di["identifiers"]
     assert "58-04-4F-D8-20-2D" in di["name"]
+
+
+# --- Ethernet port tests (TS-20, TS-21) ---
+
+
+def test_ethernet_port_connected_with_attributes() -> None:
+    """TS-20: Ethernet port connected with speed/duplex attributes."""
+    coordinator = _make_coordinator({
+        "ethernet_ports": [
+            {"port": 1, "connected": False, "speed": 0, "duplex": ""},
+            {"port": 2, "connected": True, "speed": 1000, "duplex": "full"},
+        ],
+    })
+    sensor = EthernetPortBinarySensor(coordinator, _make_entry(), 2, "192.168.1.34", "Powerline Network")
+    assert sensor.is_on is True
+    attrs = sensor.extra_state_attributes
+    assert attrs["speed"] == 1000
+    assert attrs["duplex"] == "full"
+
+
+def test_ethernet_port_disconnected() -> None:
+    """TS-21: Ethernet port disconnected."""
+    coordinator = _make_coordinator({
+        "ethernet_ports": [
+            {"port": 1, "connected": False, "speed": 0, "duplex": ""},
+        ],
+    })
+    sensor = EthernetPortBinarySensor(coordinator, _make_entry(), 1, "192.168.1.34", "Powerline Network")
+    assert sensor.is_on is False
+    assert sensor.extra_state_attributes["speed"] == 0
