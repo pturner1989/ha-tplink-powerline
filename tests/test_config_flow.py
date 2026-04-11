@@ -163,3 +163,97 @@ async def test_config_flow_without_password(
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert CONF_PASSWORD_HASH not in result["data"]
+
+
+# --- Compatibility tests ---
+
+
+async def test_incompatible_device_triggers_confirm_step(
+    hass: HomeAssistant, mock_ping_success
+) -> None:
+    """TS-07: Incompatible device triggers confirm_ping_only step."""
+    from custom_components.tplink_powerline.client import IncompatibleDevice
+
+    with patch(
+        "custom_components.tplink_powerline.config_flow.PowerlineClient"
+    ) as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.login.side_effect = IncompatibleDevice("HTML response")
+        mock_client_cls.return_value = mock_client
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_HOST: "192.168.1.34",
+                CONF_NAME: "Powerline",
+                CONF_PASSWORD: "somepass",
+            },
+        )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "confirm_ping_only"
+
+
+async def test_confirm_ping_only_creates_entry(
+    hass: HomeAssistant, mock_ping_success
+) -> None:
+    """TS-08: Confirm ping-only creates entry without password."""
+    from custom_components.tplink_powerline.client import IncompatibleDevice
+
+    with patch(
+        "custom_components.tplink_powerline.config_flow.PowerlineClient"
+    ) as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client.login.side_effect = IncompatibleDevice("HTML response")
+        mock_client_cls.return_value = mock_client
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_HOST: "192.168.1.34",
+                CONF_NAME: "My Device",
+                CONF_PASSWORD: "somepass",
+            },
+        )
+        assert result["step_id"] == "confirm_ping_only"
+
+        # User confirms ping-only
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {}
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "My Device"
+    assert CONF_PASSWORD_HASH not in result["data"]
+
+
+async def test_compatible_device_still_works(
+    hass: HomeAssistant, mock_ping_success
+) -> None:
+    """TS-09: Compatible device still creates entry normally (regression)."""
+    with patch(
+        "custom_components.tplink_powerline.config_flow.PowerlineClient"
+    ) as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client_cls.return_value = mock_client
+
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN, context={"source": SOURCE_USER}
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_HOST: "192.168.1.34",
+                CONF_NAME: "Powerline",
+                CONF_PASSWORD: "testpassword",
+            },
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert CONF_PASSWORD_HASH in result["data"]
