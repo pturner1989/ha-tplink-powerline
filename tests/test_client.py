@@ -157,6 +157,69 @@ async def test_content_type_no_charset() -> None:
         assert "charset" not in ct
 
 
+# --- Write methods tests ---
+
+
+# TS-01: set_data writes keys successfully
+async def test_set_data_success() -> None:
+    session = _make_session()
+    session.post.return_value = _make_response("ERROR=000\r\n")
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    await client.set_data({"TPLINK.LEDSCHEDULE.LED_ENABLE": "NO"})
+
+    session.post.assert_called_once()
+    call_kwargs = session.post.call_args
+    body = call_kwargs.kwargs.get("data", call_kwargs.args[0] if call_kwargs.args else b"")
+    assert b"TPLINK.LEDSCHEDULE.LED_ENABLE=NO" in body
+
+
+# TS-02: set_data re-auths on expired session
+async def test_set_data_reauth() -> None:
+    session = _make_session()
+    session.post.side_effect = [
+        _make_response("ERROR=003\r\n"),  # first set_data fails
+        _make_response("ERROR=000\r\nTOKEN=newtoken\r\n"),  # re-login
+        _make_response("ERROR=000\r\n"),  # retry set_data
+    ]
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "expiredtoken"
+
+    await client.set_data({"KEY": "VAL"})
+
+    assert client.token == "newtoken"
+
+
+# TS-03: send_command returns result
+async def test_send_command_success() -> None:
+    session = _make_session()
+    session.post.return_value = _make_response("ERROR=000\r\nRESULT=1\r\n")
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    result = await client.send_command("get qos")
+
+    assert result == {"RESULT": "1"}
+
+
+# TS-04: send_command re-auths on expired session
+async def test_send_command_reauth() -> None:
+    session = _make_session()
+    session.post.side_effect = [
+        _make_response("ERROR=004\r\n"),  # first command fails
+        _make_response("ERROR=000\r\nTOKEN=newtoken\r\n"),  # re-login
+        _make_response("ERROR=000\r\nRESULT=1\r\n"),  # retry
+    ]
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "expiredtoken"
+
+    result = await client.send_command("get qos")
+
+    assert result == {"RESULT": "1"}
+    assert client.token == "newtoken"
+
+
 # --- Network data tests ---
 
 

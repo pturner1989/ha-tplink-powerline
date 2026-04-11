@@ -164,6 +164,82 @@ class PowerlineClient:
             f"Data fetch failed with error code {error_code}"
         )
 
+    async def set_data(
+        self, data: dict[str, str], *, retry_auth: bool = True
+    ) -> None:
+        """Write key-value pairs to the device."""
+        if not self.token:
+            raise DeviceUnavailable("Not logged in")
+
+        body_parts = [f"_t={self.token}"]
+        for key, value in data.items():
+            body_parts.append(f"{key}={value}")
+        body = "&".join(body_parts)
+
+        try:
+            async with self._session.post(
+                self._base_url,
+                data=body.encode("ascii"),
+                headers=self._headers,
+                timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT),
+            ) as resp:
+                text = await resp.text()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise DeviceUnavailable(
+                f"Cannot connect to {self.host}"
+            ) from err
+
+        error_code, _ = _parse_response(text)
+
+        if error_code == "000":
+            return
+
+        if error_code in _ERROR_AUTH and retry_auth:
+            _LOGGER.debug("Session expired for %s, re-authenticating", self.host)
+            await self.login()
+            await self.set_data(data, retry_auth=False)
+            return
+
+        raise UnexpectedResponse(
+            f"Set data failed with error code {error_code}"
+        )
+
+    async def send_command(
+        self, command: str, *, retry_auth: bool = True
+    ) -> dict[str, str]:
+        """Send a COMMAND to the device and return the response data."""
+        if not self.token:
+            raise DeviceUnavailable("Not logged in")
+
+        body = f"_t={self.token}&COMMAND={command}"
+
+        try:
+            async with self._session.post(
+                self._base_url,
+                data=body.encode("ascii"),
+                headers=self._headers,
+                timeout=aiohttp.ClientTimeout(total=HTTP_TIMEOUT),
+            ) as resp:
+                text = await resp.text()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise DeviceUnavailable(
+                f"Cannot connect to {self.host}"
+            ) from err
+
+        error_code, data = _parse_response(text)
+
+        if error_code == "000":
+            return data
+
+        if error_code in _ERROR_AUTH and retry_auth:
+            _LOGGER.debug("Session expired for %s, re-authenticating", self.host)
+            await self.login()
+            return await self.send_command(command, retry_auth=False)
+
+        raise UnexpectedResponse(
+            f"Command '{command}' failed with error code {error_code}"
+        )
+
     async def get_device_info(self) -> dict[str, str]:
         """Fetch device model, firmware, and hardware version."""
         data = await self.get_data([
