@@ -17,13 +17,13 @@
   <rect x="140" y="160" width="232" height="80" rx="16" fill="white" />
 
   <!-- Cable from plug down -->
-  <rect x="238" y="240" width="36" height="60" rx="4" fill="white" />
+  <rect x="238" y="240" width="36" height="50" rx="4" fill="white" />
 
-  <!-- Network signal waves -->
-  <!-- Inner arc -->
-  <path d="M 200 340 A 70 70 0 0 1 312 340" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" />
+  <!-- Network signal waves - outer arc first, then inner, spaced apart -->
   <!-- Outer arc -->
-  <path d="M 160 370 A 110 110 0 0 1 352 370" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" />
+  <path d="M 140 390 A 130 130 0 0 1 372 390" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" />
+  <!-- Inner arc -->
+  <path d="M 196 370 A 72 72 0 0 1 316 370" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" />
 
   <!-- Dot at center bottom -->
   <circle cx="256" cy="400" r="24" fill="white" />
