@@ -263,11 +263,13 @@ class PowerlineClient:
             "SYSTEM.PRODUCTION.HW_PRODUCT",
             "SYSTEM.PRODUCTION.HW_REVISION",
             "SYSTEM.GENERAL.FW_VERSION",
+            "SYSTEM.PRODUCTION.MAC_ADDR",
         ])
         return {
             "model": data.get("SYSTEM.PRODUCTION.HW_PRODUCT", "Unknown"),
             "firmware": data.get("SYSTEM.GENERAL.FW_VERSION", "Unknown"),
             "hardware": data.get("SYSTEM.PRODUCTION.HW_REVISION", "Unknown"),
+            "mac": data.get("SYSTEM.PRODUCTION.MAC_ADDR", ""),
         }
 
     async def get_network_name(self) -> str:

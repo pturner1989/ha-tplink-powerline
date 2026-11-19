@@ -6,13 +6,13 @@ import logging
 
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .client import PowerlineClient
 from .const import DOMAIN
+from .device import root_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,9 +42,7 @@ class RebootButton(ButtonEntity):
         self._client = client
         self._attr_unique_id = f"{entry.entry_id}_reboot"
         self._attr_name = f"{entry.data[CONF_NAME]} Reboot"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.data[CONF_HOST])},
-        )
+        self._attr_device_info = root_device_info(entry)
 
     async def async_press(self) -> None:
         _LOGGER.info("Rebooting powerline device %s", self._client.host)

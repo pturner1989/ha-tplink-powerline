@@ -9,7 +9,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import TplinkPowerlineCoordinator
+from .device import root_device_identifier, root_device_info
 from .network_coordinator import NetworkCoordinator
 
 
@@ -28,26 +29,24 @@ async def async_setup_entry(
     """Set up TP-Link Powerline binary sensors from a config entry."""
     entry_data = hass.data[DOMAIN][entry.entry_id]
     coordinator: TplinkPowerlineCoordinator = entry_data["coordinator"]
-    device_info: dict[str, str] | None = entry_data.get("device_info")
     network_coordinator: NetworkCoordinator | None = entry_data.get("network_coordinator")
 
     entities: list[BinarySensorEntity] = [
-        TplinkPowerlineBinarySensor(coordinator, entry, device_info)
+        TplinkPowerlineBinarySensor(coordinator, entry)
     ]
 
     if network_coordinator and network_coordinator.data:
-        host = entry.data[CONF_HOST]
         name = entry.data[CONF_NAME]
         for adapter in network_coordinator.data.get("adapters", []):
             entities.append(
                 RemoteAdapterBinarySensor(
-                    network_coordinator, entry, adapter["mac"], host
+                    network_coordinator, entry, adapter["mac"]
                 )
             )
         for port in network_coordinator.data.get("ethernet_ports", []) or []:
             entities.append(
                 EthernetPortBinarySensor(
-                    network_coordinator, entry, port["port"], host, name
+                    network_coordinator, entry, port["port"], name
                 )
             )
 
@@ -65,33 +64,13 @@ class TplinkPowerlineBinarySensor(
         self,
         coordinator: TplinkPowerlineCoordinator,
         entry: ConfigEntry,
-        device_info: dict[str, str] | None,
     ) -> None:
         """Initialize the binary sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = entry.entry_id
         self._attr_name = entry.data[CONF_NAME]
-
-        model = "Powerline Adapter"
-        sw_version = None
-        hw_version = None
-        if device_info:
-            model = device_info.get("model", model)
-            sw_version = device_info.get("firmware")
-            hw_version = device_info.get("hardware")
-
-        di_kwargs: dict[str, Any] = {
-            "identifiers": {(DOMAIN, entry.data[CONF_HOST])},
-            "name": entry.data[CONF_NAME],
-            "manufacturer": "TP-Link",
-            "model": model,
-        }
-        if sw_version:
-            di_kwargs["sw_version"] = sw_version
-        if hw_version:
-            di_kwargs["hw_version"] = hw_version
-
-        self._attr_device_info = DeviceInfo(**di_kwargs)
+        # Name, model and versions are set when the device is registered in setup.
+        self._attr_device_info = root_device_info(entry)
 
     @property
     def is_on(self) -> bool | None:
@@ -113,7 +92,6 @@ class RemoteAdapterBinarySensor(
         coordinator: NetworkCoordinator,
         entry: ConfigEntry,
         mac: str,
-        host: str,
     ) -> None:
         """Initialize the remote adapter binary sensor."""
         super().__init__(coordinator)
@@ -125,7 +103,7 @@ class RemoteAdapterBinarySensor(
             name=f"Powerline Adapter {mac}",
             manufacturer="TP-Link",
             model="Powerline Adapter",
-            via_device=(DOMAIN, host),
+            via_device=root_device_identifier(entry),
         )
 
     def _find_adapter(self) -> dict[str, Any] | None:
@@ -158,7 +136,6 @@ class EthernetPortBinarySensor(
         coordinator: NetworkCoordinator,
         entry: ConfigEntry,
         port_num: int,
-        host: str,
         name: str,
     ) -> None:
         """Initialize the ethernet port binary sensor."""
@@ -167,7 +144,7 @@ class EthernetPortBinarySensor(
         self._attr_unique_id = f"{entry.entry_id}_ethernet_port_{port_num}"
         self._attr_name = f"{name} Ethernet Port {port_num}"
         self._attr_icon = "mdi:ethernet"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+        self._attr_device_info = root_device_info(entry)
 
     def _find_port(self) -> dict[str, Any] | None:
         if not self.coordinator.data:

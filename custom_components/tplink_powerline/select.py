@@ -7,14 +7,14 @@ from typing import Any
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .client import PowerlineClient
 from .const import DOMAIN, QOS_MODES_REVERSE, REBOOT_CYCLES, REBOOT_CYCLES_REVERSE
+from .device import root_device_info
 
 WEEKDAYS = {
     "1": "Monday", "2": "Tuesday", "3": "Wednesday", "4": "Thursday",
@@ -42,17 +42,16 @@ async def async_setup_entry(
     if not network_coordinator or not client:
         return
 
-    host = entry.data[CONF_HOST]
     name = entry.data[CONF_NAME]
     entities: list[SelectEntity] = []
 
     if network_coordinator.data and network_coordinator.data.get("qos_mode") is not None:
-        entities.append(QosModeSelect(network_coordinator, client, entry, host, name))
+        entities.append(QosModeSelect(network_coordinator, client, entry, name))
 
     if network_coordinator.data and network_coordinator.data.get("reboot_schedule") is not None:
-        entities.append(RebootCycleSelect(network_coordinator, client, entry, host, name))
-        entities.append(RebootWeekdaySelect(network_coordinator, client, entry, host, name))
-        entities.append(RebootMonthdaySelect(network_coordinator, client, entry, host, name))
+        entities.append(RebootCycleSelect(network_coordinator, client, entry, name))
+        entities.append(RebootWeekdaySelect(network_coordinator, client, entry, name))
+        entities.append(RebootMonthdaySelect(network_coordinator, client, entry, name))
 
     async_add_entities(entities)
 
@@ -63,12 +62,12 @@ class QosModeSelect(CoordinatorEntity[NetworkCoordinator], SelectEntity):
     _attr_options = ["Fair", "Gaming", "Streaming", "Voice"]
     _attr_icon = "mdi:quality-high"
 
-    def __init__(self, coordinator, client, entry, host, name):
+    def __init__(self, coordinator, client, entry, name):
         super().__init__(coordinator)
         self._client = client
         self._attr_unique_id = f"{entry.entry_id}_qos_mode"
         self._attr_name = f"{name} QoS Mode"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+        self._attr_device_info = root_device_info(entry)
 
     @property
     def current_option(self) -> str | None:
@@ -88,12 +87,12 @@ class RebootCycleSelect(CoordinatorEntity[NetworkCoordinator], SelectEntity):
     _attr_options = ["Daily", "Weekly", "Monthly"]
     _attr_icon = "mdi:calendar-refresh"
 
-    def __init__(self, coordinator, client, entry, host, name):
+    def __init__(self, coordinator, client, entry, name):
         super().__init__(coordinator)
         self._client = client
         self._attr_unique_id = f"{entry.entry_id}_reboot_cycle"
         self._attr_name = f"{name} Reboot Cycle"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+        self._attr_device_info = root_device_info(entry)
 
     @property
     def current_option(self) -> str | None:
@@ -116,12 +115,12 @@ class RebootWeekdaySelect(CoordinatorEntity[NetworkCoordinator], SelectEntity):
     _attr_options = list(WEEKDAYS.values())
     _attr_icon = "mdi:calendar-week"
 
-    def __init__(self, coordinator, client, entry, host, name):
+    def __init__(self, coordinator, client, entry, name):
         super().__init__(coordinator)
         self._client = client
         self._attr_unique_id = f"{entry.entry_id}_reboot_weekday"
         self._attr_name = f"{name} Reboot Weekday"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+        self._attr_device_info = root_device_info(entry)
 
     @property
     def current_option(self) -> str | None:
@@ -144,12 +143,12 @@ class RebootMonthdaySelect(CoordinatorEntity[NetworkCoordinator], SelectEntity):
     _attr_options = [str(i) for i in range(1, 29)]
     _attr_icon = "mdi:calendar-month"
 
-    def __init__(self, coordinator, client, entry, host, name):
+    def __init__(self, coordinator, client, entry, name):
         super().__init__(coordinator)
         self._client = client
         self._attr_unique_id = f"{entry.entry_id}_reboot_monthday"
         self._attr_name = f"{name} Reboot Day of Month"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+        self._attr_device_info = root_device_info(entry)
 
     @property
     def current_option(self) -> str | None:

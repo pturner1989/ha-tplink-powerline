@@ -57,7 +57,7 @@ def test_static_sensors_share_device_identifiers() -> None:
     entry = _make_entry()
     for desc in STATIC_SENSOR_DESCRIPTIONS:
         sensor = StaticDiagnosticSensor(entry, SAMPLE_DEVICE_INFO, desc)
-        assert (DOMAIN, "192.168.1.34") in sensor.device_info["identifiers"]
+        assert (DOMAIN, "test_entry_id") in sensor.device_info["identifiers"]
 
 
 # --- Rate sensor tests (TS-07) ---
@@ -67,8 +67,8 @@ def test_rate_sensors_show_converted_values() -> None:
     """TS-07: TX/RX rate sensors show converted values."""
     coordinator = _make_coordinator(SAMPLE_NETWORK_DATA)
     entry = _make_entry()
-    tx = AdapterRateSensor(coordinator, entry, "58-04-4F-D8-20-2D", "192.168.1.34", "tx_rate", "TX Rate", "mdi:upload-network")
-    rx = AdapterRateSensor(coordinator, entry, "58-04-4F-D8-20-2D", "192.168.1.34", "rx_rate", "RX Rate", "mdi:download-network")
+    tx = AdapterRateSensor(coordinator, entry, "58-04-4F-D8-20-2D", "tx_rate", "TX Rate", "mdi:upload-network")
+    rx = AdapterRateSensor(coordinator, entry, "58-04-4F-D8-20-2D", "rx_rate", "RX Rate", "mdi:download-network")
     assert tx.native_value == 366
     assert rx.native_value == 317
     assert tx.native_unit_of_measurement == UnitOfDataRate.MEGABITS_PER_SECOND
@@ -81,7 +81,7 @@ def test_connected_count_sensor() -> None:
     """TS-08: Connected count sensor reflects adapter count."""
     coordinator = _make_coordinator(SAMPLE_NETWORK_DATA)
     entry = _make_entry()
-    sensor = ConnectedCountSensor(coordinator, entry, "192.168.1.34", "Powerline Network")
+    sensor = ConnectedCountSensor(coordinator, entry, "Powerline Network")
     assert sensor.native_value == 1
 
 
@@ -91,7 +91,7 @@ def test_connected_count_sensor() -> None:
 def test_network_name_sensor() -> None:
     """TS-09: Network name sensor shows name."""
     entry = _make_entry()
-    sensor = NetworkNameSensor(entry, "MyPowerline", "192.168.1.34")
+    sensor = NetworkNameSensor(entry, "MyPowerline")
     assert sensor.native_value == "MyPowerline"
     assert sensor.entity_category is EntityCategory.DIAGNOSTIC
 
@@ -103,9 +103,9 @@ def test_remote_adapter_sensor_has_via_device() -> None:
     """TS-10: Remote adapter sensors have via_device to root."""
     coordinator = _make_coordinator(SAMPLE_NETWORK_DATA)
     entry = _make_entry()
-    sensor = AdapterRateSensor(coordinator, entry, "58-04-4F-D8-20-2D", "192.168.1.34", "tx_rate", "TX Rate", "mdi:upload-network")
+    sensor = AdapterRateSensor(coordinator, entry, "58-04-4F-D8-20-2D", "tx_rate", "TX Rate", "mdi:upload-network")
     di = sensor.device_info
-    assert di["via_device"] == (DOMAIN, "192.168.1.34")
+    assert di["via_device"] == (DOMAIN, "test_entry_id")
     assert (DOMAIN, "58-04-4F-D8-20-2D") in di["identifiers"]
 
 

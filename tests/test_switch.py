@@ -33,7 +33,7 @@ def _make_coordinator(data=None):
 # TS-07: LED switch reflects state
 def test_led_switch_state() -> None:
     coordinator = _make_coordinator()
-    switch = LedSwitch(coordinator, AsyncMock(), _make_entry(), "192.168.1.34", "Powerline Network")
+    switch = LedSwitch(coordinator, AsyncMock(), _make_entry(), "Powerline Network")
     assert switch.is_on is True
 
 
@@ -41,7 +41,7 @@ def test_led_switch_state() -> None:
 async def test_led_switch_toggle() -> None:
     client = AsyncMock()
     coordinator = _make_coordinator()
-    switch = LedSwitch(coordinator, client, _make_entry(), "192.168.1.34", "Powerline Network")
+    switch = LedSwitch(coordinator, client, _make_entry(), "Powerline Network")
 
     await switch.async_turn_off()
 
@@ -53,7 +53,7 @@ async def test_led_switch_toggle() -> None:
 async def test_night_mode_switch() -> None:
     client = AsyncMock()
     coordinator = _make_coordinator()
-    switch = NightModeSwitch(coordinator, client, _make_entry(), "192.168.1.34", "Powerline Network")
+    switch = NightModeSwitch(coordinator, client, _make_entry(), "Powerline Network")
     assert switch.is_on is True
 
     await switch.async_turn_off()
@@ -64,7 +64,7 @@ async def test_night_mode_switch() -> None:
 async def test_reboot_schedule_switch() -> None:
     client = AsyncMock()
     coordinator = _make_coordinator()
-    switch = RebootScheduleSwitch(coordinator, client, _make_entry(), "192.168.1.34", "Powerline Network")
+    switch = RebootScheduleSwitch(coordinator, client, _make_entry(), "Powerline Network")
     assert switch.is_on is False
 
     await switch.async_turn_on()

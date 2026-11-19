@@ -30,7 +30,7 @@ This project follows **Spec Driven Development (SDD)**. All feature work must go
 ## Tech Stack
 
 - Python 3.13+
-- Home Assistant 2024.12+
+- Home Assistant 2025.1+
 - aiohttp for async HTTP (via HA's client session)
 - pytest + pytest-homeassistant-custom-component for testing
 
