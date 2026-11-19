@@ -36,7 +36,7 @@ def _make_coordinator(data=None):
 # TS-12: Night mode start time reads from coordinator
 def test_night_mode_start_time() -> None:
     coordinator = _make_coordinator()
-    entity = NightModeStartTime(coordinator, AsyncMock(), _make_entry(), "192.168.1.34", "Powerline Network")
+    entity = NightModeStartTime(coordinator, AsyncMock(), _make_entry(), "Powerline Network")
     assert entity.native_value == dt_time(21, 0)
 
 
@@ -44,7 +44,7 @@ def test_night_mode_start_time() -> None:
 async def test_night_mode_start_time_write() -> None:
     client = AsyncMock()
     coordinator = _make_coordinator()
-    entity = NightModeStartTime(coordinator, client, _make_entry(), "192.168.1.34", "Powerline Network")
+    entity = NightModeStartTime(coordinator, client, _make_entry(), "Powerline Network")
 
     await entity.async_set_value(dt_time(22, 30))
 
@@ -58,5 +58,5 @@ async def test_night_mode_start_time_write() -> None:
 # TS-14: Reboot schedule time
 def test_reboot_schedule_time() -> None:
     coordinator = _make_coordinator()
-    entity = RebootScheduleTime(coordinator, AsyncMock(), _make_entry(), "192.168.1.34", "Powerline Network")
+    entity = RebootScheduleTime(coordinator, AsyncMock(), _make_entry(), "Powerline Network")
     assert entity.native_value == dt_time(3, 0)

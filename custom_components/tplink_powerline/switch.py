@@ -7,14 +7,14 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .client import PowerlineClient
 from .const import DOMAIN
+from .device import root_device_info
 from .network_coordinator import NetworkCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,17 +33,16 @@ async def async_setup_entry(
     if not network_coordinator or not client:
         return
 
-    host = entry.data[CONF_HOST]
     name = entry.data[CONF_NAME]
 
     entities: list[SwitchEntity] = []
 
     if network_coordinator.data and network_coordinator.data.get("led") is not None:
-        entities.append(LedSwitch(network_coordinator, client, entry, host, name))
-        entities.append(NightModeSwitch(network_coordinator, client, entry, host, name))
+        entities.append(LedSwitch(network_coordinator, client, entry, name))
+        entities.append(NightModeSwitch(network_coordinator, client, entry, name))
 
     if network_coordinator.data and network_coordinator.data.get("reboot_schedule") is not None:
-        entities.append(RebootScheduleSwitch(network_coordinator, client, entry, host, name))
+        entities.append(RebootScheduleSwitch(network_coordinator, client, entry, name))
 
     async_add_entities(entities)
 
@@ -56,7 +55,6 @@ class _BaseSwitch(CoordinatorEntity[NetworkCoordinator], SwitchEntity):
         coordinator: NetworkCoordinator,
         client: PowerlineClient,
         entry: ConfigEntry,
-        host: str,
         name: str,
         key: str,
         label: str,
@@ -75,7 +73,7 @@ class _BaseSwitch(CoordinatorEntity[NetworkCoordinator], SwitchEntity):
         self._icon_off = icon_off
         self._attr_unique_id = f"{entry.entry_id}_{key}"
         self._attr_name = f"{name} {label}"
-        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, host)})
+        self._attr_device_info = root_device_info(entry)
 
     @property
     def is_on(self) -> bool | None:
@@ -100,27 +98,27 @@ class _BaseSwitch(CoordinatorEntity[NetworkCoordinator], SwitchEntity):
 
 
 class LedSwitch(_BaseSwitch):
-    def __init__(self, coordinator, client, entry, host, name):
+    def __init__(self, coordinator, client, entry, name):
         super().__init__(
-            coordinator, client, entry, host, name,
+            coordinator, client, entry, name,
             key="led_switch", label="LED", icon_on="mdi:led-on", icon_off="mdi:led-off",
             section="led", data_key="enabled", write_key="TPLINK.LEDSCHEDULE.LED_ENABLE",
         )
 
 
 class NightModeSwitch(_BaseSwitch):
-    def __init__(self, coordinator, client, entry, host, name):
+    def __init__(self, coordinator, client, entry, name):
         super().__init__(
-            coordinator, client, entry, host, name,
+            coordinator, client, entry, name,
             key="night_mode_switch", label="LED Night Mode", icon_on="mdi:weather-night", icon_off="mdi:weather-night",
             section="led", data_key="night_mode", write_key="TPLINK.LEDSCHEDULE.ENABLE",
         )
 
 
 class RebootScheduleSwitch(_BaseSwitch):
-    def __init__(self, coordinator, client, entry, host, name):
+    def __init__(self, coordinator, client, entry, name):
         super().__init__(
-            coordinator, client, entry, host, name,
+            coordinator, client, entry, name,
             key="reboot_schedule_switch", label="Reboot Schedule", icon_on="mdi:restart-alert", icon_off="mdi:restart-alert",
             section="reboot_schedule", data_key="enabled", write_key="TPLINK.REBOOTSCHEDULE.ENABLE",
         )

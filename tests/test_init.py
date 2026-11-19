@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from custom_components.tplink_powerline.const import CONF_PASSWORD_HASH, DOMAIN
 
@@ -39,6 +40,7 @@ def _mock_http_client() -> AsyncMock:
         "model": "PG2400P",
         "firmware": "1.0.3 Build 20221213 Rel.62540",
         "hardware": "1.0",
+        "mac": "B8-FB-B3-B6-DD-DF",
     }
     client.get_network_name.return_value = "MyPowerline"
     client.get_network_data.return_value = SAMPLE_NETWORK_DATA
@@ -304,3 +306,131 @@ async def test_network_coordinator_failure_doesnt_block_device_info(hass: HomeAs
     assert ed["device_info"] is not None
     assert ed["device_info"]["model"] == "PG2400P"
     assert ed["network_coordinator"] is None
+
+
+# --- Device identity and migration tests ---
+
+ROOT_MAC = "b8:fb:b3:b6:dd:df"
+HOST = "192.168.1.34"
+
+
+def _ping_ok():
+    return patch(
+        "custom_components.tplink_powerline.coordinator.asyncio.create_subprocess_exec",
+        return_value=_mock_process(0),
+    )
+
+
+async def _setup(hass: HomeAssistant, entry: MockConfigEntry, client=None) -> None:
+    with _ping_ok(), patch(
+        "custom_components.tplink_powerline.PowerlineClient",
+        return_value=client or _mock_http_client(),
+    ):
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+
+async def test_http_setup_registers_root_device_with_mac(hass: HomeAssistant) -> None:
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
+    entry.add_to_hass(hass)
+    await _setup(hass, entry)
+
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert device is not None
+    assert (dr.CONNECTION_NETWORK_MAC, ROOT_MAC) in device.connections
+    assert device.manufacturer == "TP-Link"
+    assert device.model == "PG2400P"
+    assert device.sw_version == "1.0.3 Build 20221213 Rel.62540"
+    assert device.name == "Powerline Network"
+
+
+async def test_http_setup_adopts_mac_as_unique_id(hass: HomeAssistant) -> None:
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
+    entry.add_to_hass(hass)
+    await _setup(hass, entry)
+    assert entry.unique_id == ROOT_MAC
+
+
+async def test_ping_only_setup_registers_root_device_without_mac(hass: HomeAssistant) -> None:
+    entry = _make_config_entry()
+    entry.add_to_hass(hass)
+    await _setup(hass, entry)
+
+    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert device is not None
+    assert device.connections == set()
+    assert device.model == "Powerline Adapter"
+    assert device.sw_version is None
+    assert entry.unique_id == HOST
+
+
+async def test_mac_unique_id_not_adopted_when_owned_by_another_entry(
+    hass: HomeAssistant,
+) -> None:
+    other = MockConfigEntry(domain=DOMAIN, data={CONF_HOST: "10.0.0.9", CONF_NAME: "Other"}, unique_id=ROOT_MAC)
+    other.add_to_hass(hass)
+    entry = _make_config_entry(password_hash="e16b2ab8d12314bf4efbd6203906ea6c")
+    entry.add_to_hass(hass)
+
+    await _setup(hass, entry)
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.unique_id == HOST
+
+
+async def test_migration_moves_root_device_to_entry_id(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_HOST: HOST, CONF_NAME: "Powerline Network", CONF_PASSWORD_HASH: "e16b2ab8d12314bf4efbd6203906ea6c"},
+        unique_id=HOST,
+        version=1,
+        minor_version=1,
+    )
+    entry.add_to_hass(hass)
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    old_root = dev_reg.async_get_or_create(
+        config_entry_id=entry.entry_id, identifiers={(DOMAIN, HOST)}, name="Powerline Network"
+    )
+    remote = dev_reg.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, "58-04-4F-D8-20-2D")},
+        via_device=(DOMAIN, HOST),
+    )
+    connectivity = ent_reg.async_get_or_create(
+        "binary_sensor", DOMAIN, entry.entry_id, config_entry=entry, device_id=old_root.id
+    )
+
+    await _setup(hass, entry)
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.minor_version == 2
+    root = dev_reg.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    assert root is not None and root.id == old_root.id
+    assert dev_reg.async_get_device(identifiers={(DOMAIN, HOST)}) is None
+    assert ent_reg.async_get(connectivity.entity_id).device_id == old_root.id
+    assert dev_reg.async_get(remote.id).via_device_id == old_root.id
+    assert entry.unique_id == ROOT_MAC
+
+
+async def test_migration_without_existing_device(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_HOST: HOST, CONF_NAME: "Powerline Network"},
+        unique_id=HOST,
+        version=1,
+        minor_version=1,
+    )
+    entry.add_to_hass(hass)
+    await _setup(hass, entry)
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.minor_version == 2
+
+
+async def test_migration_rejects_future_major_version(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={CONF_HOST: HOST, CONF_NAME: "Powerline Network"}, version=2
+    )
+    entry.add_to_hass(hass)
+    await _setup(hass, entry)
+    assert entry.state is ConfigEntryState.MIGRATION_ERROR

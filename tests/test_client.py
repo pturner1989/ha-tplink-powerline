@@ -116,6 +116,7 @@ async def test_get_device_info() -> None:
         "SYSTEM.PRODUCTION.HW_PRODUCT=PG2400P\r\n"
         "SYSTEM.PRODUCTION.HW_REVISION=1.0\r\n"
         "SYSTEM.GENERAL.FW_VERSION=1.0.3 Build 20221213 Rel.62540\r\n"
+        "SYSTEM.PRODUCTION.MAC_ADDR=B8-FB-B3-B6-DD-DF\r\n"
     )
     client = PowerlineClient("192.168.1.34", "md5hash", session)
     client.token = "validtoken"
@@ -126,7 +127,22 @@ async def test_get_device_info() -> None:
         "model": "PG2400P",
         "firmware": "1.0.3 Build 20221213 Rel.62540",
         "hardware": "1.0",
+        "mac": "B8-FB-B3-B6-DD-DF",
     }
+
+
+async def test_get_device_info_without_mac() -> None:
+    session = _make_session()
+    session.get.return_value = _make_response(
+        "ERROR=000\r\n"
+        "SYSTEM.PRODUCTION.HW_PRODUCT=PG2400P\r\n"
+    )
+    client = PowerlineClient("192.168.1.34", "md5hash", session)
+    client.token = "validtoken"
+
+    info = await client.get_device_info()
+
+    assert info["mac"] == ""
 
 
 # TS-17: Logout clears token

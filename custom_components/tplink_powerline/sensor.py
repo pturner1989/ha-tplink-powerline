@@ -6,13 +6,14 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_NAME, EntityCategory, UnitOfDataRate
+from homeassistant.const import CONF_NAME, EntityCategory, UnitOfDataRate
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
+from .device import root_device_identifier, root_device_info
 from .network_coordinator import NetworkCoordinator
 
 STATIC_SENSOR_DESCRIPTIONS = [
@@ -32,7 +33,6 @@ async def async_setup_entry(
     device_info: dict[str, str] | None = entry_data.get("device_info")
     network_coordinator: NetworkCoordinator | None = entry_data.get("network_coordinator")
     network_name: str | None = entry_data.get("network_name")
-    host = entry.data[CONF_HOST]
     name = entry.data[CONF_NAME]
 
     entities: list[SensorEntity] = []
@@ -44,23 +44,23 @@ async def async_setup_entry(
 
     # Network name sensor (static, diagnostic)
     if network_name:
-        entities.append(NetworkNameSensor(entry, network_name, host))
+        entities.append(NetworkNameSensor(entry, network_name))
 
     # Network coordinator-driven sensors
     if network_coordinator and network_coordinator.data:
         # Connected adapters count on root device
         entities.append(
-            ConnectedCountSensor(network_coordinator, entry, host, name)
+            ConnectedCountSensor(network_coordinator, entry, name)
         )
 
         # Per-adapter TX/RX rate sensors
         for adapter in network_coordinator.data.get("adapters", []):
             mac = adapter["mac"]
             entities.append(
-                AdapterRateSensor(network_coordinator, entry, mac, host, "tx_rate", "TX Rate", "mdi:upload-network")
+                AdapterRateSensor(network_coordinator, entry, mac, "tx_rate", "TX Rate", "mdi:upload-network")
             )
             entities.append(
-                AdapterRateSensor(network_coordinator, entry, mac, host, "rx_rate", "RX Rate", "mdi:download-network")
+                AdapterRateSensor(network_coordinator, entry, mac, "rx_rate", "RX Rate", "mdi:download-network")
             )
 
     async_add_entities(entities)
@@ -82,9 +82,7 @@ class StaticDiagnosticSensor(SensorEntity):
         self._attr_name = f"{entry.data[CONF_NAME]} {description['name']}"
         self._attr_native_value = device_info.get(description["key"])
         self._attr_icon = description["icon"]
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.data[CONF_HOST])},
-        )
+        self._attr_device_info = root_device_info(entry)
 
 
 class NetworkNameSensor(SensorEntity):
@@ -94,15 +92,13 @@ class NetworkNameSensor(SensorEntity):
     _attr_icon = "mdi:network"
 
     def __init__(
-        self, entry: ConfigEntry, network_name: str, host: str
+        self, entry: ConfigEntry, network_name: str
     ) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = f"{entry.entry_id}_network_name"
         self._attr_name = f"{entry.data[CONF_NAME]} Network Name"
         self._attr_native_value = network_name
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, host)},
-        )
+        self._attr_device_info = root_device_info(entry)
 
 
 class ConnectedCountSensor(CoordinatorEntity[NetworkCoordinator], SensorEntity):
@@ -115,16 +111,13 @@ class ConnectedCountSensor(CoordinatorEntity[NetworkCoordinator], SensorEntity):
         self,
         coordinator: NetworkCoordinator,
         entry: ConfigEntry,
-        host: str,
         name: str,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_connected_count"
         self._attr_name = f"{name} Connected Adapters"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, host)},
-        )
+        self._attr_device_info = root_device_info(entry)
 
     @property
     def native_value(self) -> int | None:
@@ -145,7 +138,6 @@ class AdapterRateSensor(CoordinatorEntity[NetworkCoordinator], SensorEntity):
         coordinator: NetworkCoordinator,
         entry: ConfigEntry,
         mac: str,
-        host: str,
         rate_key: str,
         rate_label: str,
         icon: str,
@@ -162,7 +154,7 @@ class AdapterRateSensor(CoordinatorEntity[NetworkCoordinator], SensorEntity):
             name=f"Powerline Adapter {mac}",
             manufacturer="TP-Link",
             model="Powerline Adapter",
-            via_device=(DOMAIN, host),
+            via_device=root_device_identifier(entry),
         )
 
     def _find_adapter(self) -> dict[str, Any] | None:

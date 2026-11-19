@@ -32,41 +32,20 @@ def _make_coordinator(data: dict | None = None) -> MagicMock:
 
 def test_binary_sensor_connected_when_available() -> None:
     coordinator = _make_coordinator({"available": True})
-    sensor = TplinkPowerlineBinarySensor(coordinator, _make_entry(), None)
+    sensor = TplinkPowerlineBinarySensor(coordinator, _make_entry())
     assert sensor.is_on is True
 
 
 def test_binary_sensor_disconnected_when_unavailable() -> None:
     coordinator = _make_coordinator({"available": False})
-    sensor = TplinkPowerlineBinarySensor(coordinator, _make_entry(), None)
+    sensor = TplinkPowerlineBinarySensor(coordinator, _make_entry())
     assert sensor.is_on is False
 
 
-def test_device_info_is_correct() -> None:
+def test_device_info_links_to_root_device() -> None:
     coordinator = _make_coordinator({"available": True})
-    sensor = TplinkPowerlineBinarySensor(coordinator, _make_entry(), None)
-    di = sensor.device_info
-    assert di["manufacturer"] == "TP-Link"
-    assert di["model"] == "Powerline Adapter"
-    assert (DOMAIN, "192.168.1.34") in di["identifiers"]
-
-
-def test_device_info_from_http() -> None:
-    coordinator = _make_coordinator({"available": True})
-    http_info = {"model": "PG2400P", "firmware": "1.0.3", "hardware": "1.0"}
-    sensor = TplinkPowerlineBinarySensor(coordinator, _make_entry(), http_info)
-    di = sensor.device_info
-    assert di["model"] == "PG2400P"
-    assert di["sw_version"] == "1.0.3"
-    assert di["hw_version"] == "1.0"
-
-
-def test_device_info_fallback_when_http_unavailable() -> None:
-    coordinator = _make_coordinator({"available": True})
-    sensor = TplinkPowerlineBinarySensor(coordinator, _make_entry(), None)
-    di = sensor.device_info
-    assert di["model"] == "Powerline Adapter"
-    assert "sw_version" not in di
+    sensor = TplinkPowerlineBinarySensor(coordinator, _make_entry())
+    assert sensor.device_info["identifiers"] == {(DOMAIN, "test_entry_id")}
 
 
 # --- Remote adapter binary sensor tests (TS-12..15) ---
@@ -78,7 +57,7 @@ def test_remote_adapter_connected_when_rates_nonzero() -> None:
         "adapters": [{"mac": "58-04-4F-D8-20-2D", "tx_rate": 100, "rx_rate": 200}],
         "connected_count": 1,
     })
-    sensor = RemoteAdapterBinarySensor(coordinator, _make_entry(), "58-04-4F-D8-20-2D", "192.168.1.34")
+    sensor = RemoteAdapterBinarySensor(coordinator, _make_entry(), "58-04-4F-D8-20-2D")
     assert sensor.is_on is True
 
 
@@ -88,14 +67,14 @@ def test_remote_adapter_disconnected_when_rates_zero() -> None:
         "adapters": [{"mac": "58-04-4F-D8-20-2D", "tx_rate": 0, "rx_rate": 0}],
         "connected_count": 0,
     })
-    sensor = RemoteAdapterBinarySensor(coordinator, _make_entry(), "58-04-4F-D8-20-2D", "192.168.1.34")
+    sensor = RemoteAdapterBinarySensor(coordinator, _make_entry(), "58-04-4F-D8-20-2D")
     assert sensor.is_on is False
 
 
 def test_remote_adapter_unavailable_when_mac_missing() -> None:
     """TS-14: Remote adapter unavailable when MAC missing from data."""
     coordinator = _make_coordinator({"adapters": [], "connected_count": 0})
-    sensor = RemoteAdapterBinarySensor(coordinator, _make_entry(), "58-04-4F-D8-20-2D", "192.168.1.34")
+    sensor = RemoteAdapterBinarySensor(coordinator, _make_entry(), "58-04-4F-D8-20-2D")
     assert sensor.is_on is None
 
 
@@ -104,9 +83,9 @@ def test_remote_adapter_device_has_via_device() -> None:
     coordinator = _make_coordinator({
         "adapters": [{"mac": "58-04-4F-D8-20-2D", "tx_rate": 100, "rx_rate": 200}],
     })
-    sensor = RemoteAdapterBinarySensor(coordinator, _make_entry(), "58-04-4F-D8-20-2D", "192.168.1.34")
+    sensor = RemoteAdapterBinarySensor(coordinator, _make_entry(), "58-04-4F-D8-20-2D")
     di = sensor.device_info
-    assert di["via_device"] == (DOMAIN, "192.168.1.34")
+    assert di["via_device"] == (DOMAIN, "test_entry_id")
     assert (DOMAIN, "58-04-4F-D8-20-2D") in di["identifiers"]
     assert "58-04-4F-D8-20-2D" in di["name"]
 
@@ -122,7 +101,7 @@ def test_ethernet_port_connected_with_attributes() -> None:
             {"port": 2, "connected": True, "speed": 1000, "duplex": "full"},
         ],
     })
-    sensor = EthernetPortBinarySensor(coordinator, _make_entry(), 2, "192.168.1.34", "Powerline Network")
+    sensor = EthernetPortBinarySensor(coordinator, _make_entry(), 2, "Powerline Network")
     assert sensor.is_on is True
     attrs = sensor.extra_state_attributes
     assert attrs["speed"] == 1000
@@ -136,6 +115,6 @@ def test_ethernet_port_disconnected() -> None:
             {"port": 1, "connected": False, "speed": 0, "duplex": ""},
         ],
     })
-    sensor = EthernetPortBinarySensor(coordinator, _make_entry(), 1, "192.168.1.34", "Powerline Network")
+    sensor = EthernetPortBinarySensor(coordinator, _make_entry(), 1, "Powerline Network")
     assert sensor.is_on is False
     assert sensor.extra_state_attributes["speed"] == 0
