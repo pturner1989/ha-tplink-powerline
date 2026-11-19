@@ -7,7 +7,7 @@ HACS-compatible Home Assistant custom integration for monitoring TP-Link powerli
 ## Language & Runtime
 
 - Python 3.13+
-- Target Home Assistant 2024.12+ (current stable)
+- Target Home Assistant 2025.1+
 - No external native dependencies — pure Python only so HACS installs work everywhere
 
 ## Project Structure

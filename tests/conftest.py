@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from collections.abc import Generator
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -34,3 +35,19 @@ def mock_ping_failure():
         return_value=False,
     ) as mock:
         yield mock
+
+
+@pytest.fixture
+def mock_setup() -> Generator[MagicMock]:
+    """Stub entry setup/unload so reloads can be observed without I/O."""
+    with (
+        patch(
+            "custom_components.tplink_powerline.async_setup_entry",
+            return_value=True,
+        ) as setup,
+        patch(
+            "custom_components.tplink_powerline.async_unload_entry",
+            return_value=True,
+        ),
+    ):
+        yield setup

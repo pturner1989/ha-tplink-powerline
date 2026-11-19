@@ -4,6 +4,11 @@
   "codeowners": [],
   "config_flow": true,
   "dependencies": [],
+  "dhcp": [
+    {
+      "registered_devices": true
+    }
+  ],
   "documentation": "https://github.com/pete/ha-tplink-powerline",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/pete/ha-tplink-powerline/issues",

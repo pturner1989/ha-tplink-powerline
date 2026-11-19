@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -22,22 +21,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 OLD_HOST = "192.168.1.34"
 NEW_HOST = "192.168.1.50"
 ROOT_MAC = "b8:fb:b3:b6:dd:df"
-
-
-@pytest.fixture
-def mock_setup() -> Generator[MagicMock]:
-    """Stub entry setup/unload so reloads can be observed without I/O."""
-    with (
-        patch(
-            "custom_components.tplink_powerline.async_setup_entry",
-            return_value=True,
-        ) as setup,
-        patch(
-            "custom_components.tplink_powerline.async_unload_entry",
-            return_value=True,
-        ),
-    ):
-        yield setup
 
 
 def _client(mac: str = "B8-FB-B3-B6-DD-DF", login_error: Exception | None = None):

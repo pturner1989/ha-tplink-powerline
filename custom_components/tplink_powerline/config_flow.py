@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+from ipaddress import ip_address
 import logging
 
 import voluptuous as vol
@@ -11,6 +12,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
 from .client import (
     AuthenticationError,
@@ -30,6 +32,15 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_PASSWORD, default=""): str,
     }
 )
+
+
+def _is_ip_address(host: str) -> bool:
+    """Return True if host is an IP literal rather than a hostname."""
+    try:
+        ip_address(host)
+    except ValueError:
+        return False
+    return True
 
 
 async def async_ping(host: str) -> bool:
@@ -136,6 +147,30 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
         )
+
+    async def async_step_dhcp(
+        self, discovery_info: DhcpServiceInfo
+    ) -> ConfigFlowResult:
+        """Follow a configured adapter to the address HA's DHCP watcher saw.
+
+        The manifest only matches MACs already registered to this domain, so
+        this updates existing entries and never offers new ones.
+        """
+        mac = normalize_mac(discovery_info.macaddress)
+        if mac is None:
+            return self.async_abort(reason="not_supported")
+
+        await self.async_set_unique_id(mac)
+        entry = self.hass.config_entries.async_entry_for_domain_unique_id(
+            DOMAIN, mac
+        )
+        if entry is not None and not _is_ip_address(entry.data[CONF_HOST]):
+            # The user chose a hostname, which already follows the adapter.
+            self._abort_if_unique_id_configured()
+        self._abort_if_unique_id_configured(
+            updates={CONF_HOST: discovery_info.ip}
+        )
+        return self.async_abort(reason="not_supported")
 
     async def async_step_reconfigure(
         self, user_input: dict[str, str] | None = None
