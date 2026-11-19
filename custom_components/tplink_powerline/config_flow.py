@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from ipaddress import ip_address
 import logging
 
 import voluptuous as vol
@@ -21,7 +20,7 @@ from .client import (
     PowerlineClient,
 )
 from .const import CONF_PASSWORD_HASH, DEFAULT_NAME, DOMAIN, PING_TIMEOUT
-from .device import normalize_mac
+from .device import async_mac_from_arp, is_ip_address, normalize_mac
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,15 +31,6 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Optional(CONF_PASSWORD, default=""): str,
     }
 )
-
-
-def _is_ip_address(host: str) -> bool:
-    """Return True if host is an IP literal rather than a hostname."""
-    try:
-        ip_address(host)
-    except ValueError:
-        return False
-    return True
 
 
 async def async_ping(host: str) -> bool:
@@ -114,8 +104,9 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
                             "Device at %s has an incompatible web portal",
                             host,
                         )
-                        await self.async_set_unique_id(host)
-                        self._abort_if_unique_id_configured()
+                        await self._async_set_identity(
+                            host, await async_mac_from_arp(self.hass, host)
+                        )
                         self._user_input = entry_data
                         return await self.async_step_confirm_ping_only()
                     except Exception:
@@ -127,16 +118,9 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
                         )
 
                 if not errors:
-                    if mac:
-                        # A known adapter at a new address updates the
-                        # existing entry instead of creating a duplicate.
-                        await self.async_set_unique_id(mac)
-                        self._abort_if_unique_id_configured(
-                            updates={CONF_HOST: host}
-                        )
-                    else:
-                        await self.async_set_unique_id(host)
-                        self._abort_if_unique_id_configured()
+                    if mac is None:
+                        mac = await async_mac_from_arp(self.hass, host)
+                    await self._async_set_identity(host, mac)
                     return self.async_create_entry(
                         title=entry_data[CONF_NAME],
                         data=entry_data,
@@ -164,7 +148,7 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
         entry = self.hass.config_entries.async_entry_for_domain_unique_id(
             DOMAIN, mac
         )
-        if entry is not None and not _is_ip_address(entry.data[CONF_HOST]):
+        if entry is not None and not is_ip_address(entry.data[CONF_HOST]):
             # The user chose a hostname, which already follows the adapter.
             self._abort_if_unique_id_configured()
         self._abort_if_unique_id_configured(
@@ -208,6 +192,19 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={"name": entry.title},
         )
 
+    async def _async_set_identity(self, host: str, mac: str | None) -> None:
+        """Set the flow's unique ID, aborting if the adapter is already set up.
+
+        A known adapter (by MAC) at a new address updates the existing entry's
+        host instead of creating a duplicate.
+        """
+        if mac:
+            await self.async_set_unique_id(mac)
+            self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+        else:
+            await self.async_set_unique_id(host)
+            self._abort_if_unique_id_configured()
+
     def _host_used_by_other_entry(self, host: str, entry_id: str) -> bool:
         """Return True if another entry already uses this host."""
         return any(
@@ -222,35 +219,42 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
         """Check the new host is this entry's adapter.
 
         Returns (unique_id, error). Aborts with ``wrong_device`` if the
-        adapter at the new host has a different MAC.
+        adapter at the new host has a different MAC. The MAC comes from the
+        web portal when a password is stored, falling back to the ARP table.
         """
         entry_mac = normalize_mac(entry.unique_id)
         password_hash = entry.data.get(CONF_PASSWORD_HASH)
+        mac: str | None = None
 
-        if not password_hash:
-            # Ping-only: nothing to verify against; identity follows the host.
-            return (entry.unique_id if entry_mac else host), None
-
-        client = PowerlineClient(
-            host, password_hash, async_get_clientsession(self.hass)
-        )
-        try:
-            await client.login()
-        except AuthenticationError:
-            return None, "invalid_auth"
-        except Exception:  # noqa: BLE001 - any portal failure means unreachable
-            _LOGGER.debug("Reconfigure login failed for %s", host, exc_info=True)
-            return None, "cannot_connect"
-        try:
-            mac = await self._async_fetch_mac(client)
-        finally:
-            await client.logout()
+        if password_hash:
+            client = PowerlineClient(
+                host, password_hash, async_get_clientsession(self.hass)
+            )
+            try:
+                await client.login()
+            except AuthenticationError:
+                return None, "invalid_auth"
+            except Exception:  # noqa: BLE001 - any portal failure means unreachable
+                _LOGGER.debug(
+                    "Reconfigure login failed for %s", host, exc_info=True
+                )
+                return None, "cannot_connect"
+            try:
+                mac = await self._async_fetch_mac(client)
+            finally:
+                await client.logout()
 
         if entry_mac is None:
             # Entry not yet keyed by MAC; setup adopts it once the MAC is read.
             return host, None
         if mac is None:
-            return None, "cannot_verify"
+            mac = await async_mac_from_arp(self.hass, host)
+        if mac is None:
+            if password_hash:
+                return None, "cannot_verify"
+            # Ping-only identity can only be checked via ARP, which doesn't
+            # work across subnets; trust the user's explicit choice.
+            return entry.unique_id, None
 
         await self.async_set_unique_id(mac)
         self._abort_if_unique_id_mismatch(reason="wrong_device")

@@ -13,7 +13,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .client import PowerlineClient
 from .const import CONF_PASSWORD_HASH, DOMAIN
 from .coordinator import TplinkPowerlineCoordinator
-from .device import normalize_mac, root_device_identifier
+from .device import async_mac_from_arp, normalize_mac, root_device_identifier
 from .network_coordinator import NetworkCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -86,6 +86,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 )
 
     mac = normalize_mac(device_info.get("mac")) if device_info else None
+    if mac is None:
+        mac = await async_mac_from_arp(hass, entry.data[CONF_HOST])
     _register_root_device(hass, entry, device_info, mac)
     if mac:
         _adopt_mac_unique_id(hass, entry, mac)

@@ -51,3 +51,13 @@ def mock_setup() -> Generator[MagicMock]:
         ),
     ):
         yield setup
+
+
+@pytest.fixture(autouse=True)
+def mock_arp() -> Generator[MagicMock]:
+    """Keep tests off the real ARP table; returns no MAC unless a test sets one."""
+    with patch(
+        "custom_components.tplink_powerline.device.get_mac_address",
+        return_value=None,
+    ) as mock:
+        yield mock
