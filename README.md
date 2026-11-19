@@ -75,7 +75,7 @@ The simplest way to avoid the problem is to give the adapter a DHCP reservation 
 - **Single session:** The device only allows one active HTTP session at a time. While the integration is connected, logging into the device's web UI will invalidate the integration's session (it re-authenticates automatically on the next poll). Conversely, the integration's login will end any active web UI session.
 - **Remote adapter discovery:** Remote adapters are discovered at integration setup and on each poll. New adapters appearing between restarts are picked up on the next 60-second poll cycle.
 - **Automatic address updates need a password:** In ping-only mode the integration doesn't know the adapter's MAC address, so a changed IP must be updated manually with **Reconfigure**.
-- **No downgrade after 1.0.0:** Version 1.0.0 moves the adapter's device to a new internal identifier the first time it starts. Going back to 0.1.x afterwards creates duplicate devices; remove and re-add the integration if you need to downgrade.
+- **No downgrade after 0.2.0:** Version 0.2.0 moves the adapter's device to a new internal identifier the first time it starts. Going back to 0.1.x afterwards creates duplicate devices; remove and re-add the integration if you need to downgrade.
 - **Content-Type constraint:** The device's embedded web server rejects requests with `charset=UTF-8` in the Content-Type header. The integration handles this automatically.
 
 ## Supported Devices
