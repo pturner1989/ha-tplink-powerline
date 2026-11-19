@@ -18,14 +18,28 @@
       "confirm_ping_only": {
         "title": "Incompatible Device",
         "description": "This device's web portal is not compatible with this integration. You can continue with ping-only monitoring (basic availability only) or go back to check the device address."
+      },
+      "reconfigure": {
+        "title": "Update address",
+        "description": "Enter the new IP address or hostname for {name}. Use this if the adapter has moved to a different address on your network.",
+        "data": {
+          "host": "IP Address"
+        },
+        "data_description": {
+          "host": "The new IP address or hostname of the powerline adapter"
+        }
       }
     },
     "error": {
       "cannot_connect": "Could not reach the device. Check the IP address and try again.",
-      "invalid_auth": "Invalid password. Check the password and try again."
+      "invalid_auth": "Invalid password. Check the password and try again.",
+      "host_in_use": "Another TP-Link Powerline entry already uses this address.",
+      "cannot_verify": "Connected to the device, but could not read its MAC address to confirm it is the same adapter. Try again."
     },
     "abort": {
-      "already_configured": "This device is already configured."
+      "already_configured": "This device is already configured.",
+      "reconfigure_successful": "The adapter address has been updated.",
+      "wrong_device": "The device at that address is a different powerline adapter. Check the address and try again."
     }
   }
 }

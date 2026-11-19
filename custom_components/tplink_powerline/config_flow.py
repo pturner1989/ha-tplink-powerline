@@ -8,7 +8,7 @@ import logging
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
@@ -136,6 +136,90 @@ class TplinkPowerlineConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
         )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, str] | None = None
+    ) -> ConfigFlowResult:
+        """Point an existing entry at the adapter's new address."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            if self._host_used_by_other_entry(host, entry.entry_id):
+                errors["base"] = "host_in_use"
+            elif not await async_ping(host):
+                errors["base"] = "cannot_connect"
+            else:
+                unique_id, error = await self._async_verify_reconfigure_host(
+                    entry, host
+                )
+                if error:
+                    errors["base"] = error
+                else:
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        unique_id=unique_id,
+                        data_updates={CONF_HOST: host},
+                    )
+
+        current_host = user_input[CONF_HOST] if user_input else entry.data[CONF_HOST]
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {vol.Required(CONF_HOST, default=current_host): str}
+            ),
+            errors=errors,
+            description_placeholders={"name": entry.title},
+        )
+
+    def _host_used_by_other_entry(self, host: str, entry_id: str) -> bool:
+        """Return True if another entry already uses this host."""
+        return any(
+            other.entry_id != entry_id
+            and (other.data.get(CONF_HOST) == host or other.unique_id == host)
+            for other in self._async_current_entries(include_ignore=True)
+        )
+
+    async def _async_verify_reconfigure_host(
+        self, entry: ConfigEntry, host: str
+    ) -> tuple[str | None, str | None]:
+        """Check the new host is this entry's adapter.
+
+        Returns (unique_id, error). Aborts with ``wrong_device`` if the
+        adapter at the new host has a different MAC.
+        """
+        entry_mac = normalize_mac(entry.unique_id)
+        password_hash = entry.data.get(CONF_PASSWORD_HASH)
+
+        if not password_hash:
+            # Ping-only: nothing to verify against; identity follows the host.
+            return (entry.unique_id if entry_mac else host), None
+
+        client = PowerlineClient(
+            host, password_hash, async_get_clientsession(self.hass)
+        )
+        try:
+            await client.login()
+        except AuthenticationError:
+            return None, "invalid_auth"
+        except Exception:  # noqa: BLE001 - any portal failure means unreachable
+            _LOGGER.debug("Reconfigure login failed for %s", host, exc_info=True)
+            return None, "cannot_connect"
+        try:
+            mac = await self._async_fetch_mac(client)
+        finally:
+            await client.logout()
+
+        if entry_mac is None:
+            # Entry not yet keyed by MAC; setup adopts it once the MAC is read.
+            return host, None
+        if mac is None:
+            return None, "cannot_verify"
+
+        await self.async_set_unique_id(mac)
+        self._abort_if_unique_id_mismatch(reason="wrong_device")
+        return mac, None
 
     @staticmethod
     async def _async_fetch_mac(client: PowerlineClient) -> str | None:
